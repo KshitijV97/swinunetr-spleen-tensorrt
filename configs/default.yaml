@@ -1,0 +1,88 @@
+# =============================================================================
+# Default hyperparameters for SwinUNETR on MSD Task09 Spleen.
+#
+# Every script (train / export / benchmark) reads this file. Command-line flags
+# override individual values, e.g. `python -m src.train --epochs 50`.
+# The `smoke_test:` block at the bottom is merged on top when `--smoke-test`
+# is passed, so the tiny local configuration is visible in one place.
+#
+# See docs/TRAINING.md for an explanation of every value.
+# =============================================================================
+
+seed: 42
+results_dir: results            # JSON/Markdown outputs (committed once real numbers exist)
+
+data:
+  root_dir: data                 # dataset is downloaded/extracted here (git-ignored)
+  task: Task09_Spleen
+  val_fraction: 0.2              # 41 labelled volumes -> 33 train / 8 val
+  max_volumes: null              # cap the number of volumes used (null = all)
+  cache_rate: 1.0                # fraction of preprocessed volumes kept in RAM
+  num_workers: 4
+
+  # Preprocessing (see docs/DATA.md for the reasoning behind each number)
+  pixdim: [1.5, 1.5, 2.0]        # target voxel spacing in mm (x, y, z)
+  hu_window: [-57, 164]          # CT intensity window (Hounsfield units) for soft tissue
+  roi_size: [96, 96, 96]         # training crop size == model input size; must be divisible by 32
+  num_samples: 4                 # random crops taken from each volume per iteration
+  pos_neg_ratio: [1, 1]          # crops centred on spleen : crops centred on background
+
+model:
+  feature_size: 48               # SwinUNETR embedding width; must be divisible by 12 (24, 36, 48 ...)
+  in_channels: 1                 # CT has one channel
+  out_channels: 2                # background + spleen
+  use_checkpoint: false          # gradient checkpointing: saves GPU memory, costs ~30% speed
+  dropout_path_rate: 0.0
+
+train:
+  epochs: 150
+  batch_size: 1                  # volumes per step; each yields `num_samples` crops -> 4 crops/step
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  amp: true                      # mixed precision on CUDA (ignored on CPU/MPS)
+  val_interval: 5                # run sliding-window validation every N epochs
+  checkpoint_dir: checkpoints
+
+inference:
+  sw_batch_size: 4               # patches per forward pass inside sliding-window inference
+  overlap: 0.5                   # fractional overlap between neighbouring sliding windows
+
+export:
+  onnx_path: checkpoints/swinunetr_spleen.onnx
+  opset: 18
+  atol: 1.0e-3                   # verification passes if |PyTorch - ONNX| <= atol + rtol*|PyTorch|
+  rtol: 1.0e-3
+
+benchmark:
+  warmup_volumes: 2              # untimed passes before measuring (CUDA init, cuDNN autotune)
+  repeats: 3                     # timed passes over the validation set (more samples for p95)
+  engine_path: checkpoints/swinunetr_spleen_fp16.engine
+  workspace_gb: 4                # TensorRT builder scratch memory
+
+# -----------------------------------------------------------------------------
+# Overrides applied with --smoke-test: a deliberately tiny run that proves the
+# whole pipeline works on a laptop CPU / Apple GPU in a couple of minutes.
+# These numbers are NOT meant to produce a useful model.
+# -----------------------------------------------------------------------------
+smoke_test:
+  results_dir: results/smoke      # git-ignored: smoke numbers are not real results
+  data:
+    max_volumes: 2               # 1 train + 1 val
+    val_fraction: 0.5
+    roi_size: [64, 64, 64]
+    num_samples: 2
+    num_workers: 0
+  model:
+    feature_size: 12             # smallest legal width
+  train:
+    epochs: 2
+    val_interval: 1
+    checkpoint_dir: checkpoints/smoke
+  inference:
+    sw_batch_size: 2
+  export:
+    onnx_path: checkpoints/smoke/swinunetr_spleen.onnx
+  benchmark:
+    warmup_volumes: 1
+    repeats: 1
+    engine_path: checkpoints/smoke/swinunetr_spleen_fp16.engine
