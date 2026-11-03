@@ -1,7 +1,13 @@
 # Documentation
 
-There are two tracks, written for different readers. Both describe the same
-code.
+There are three entry points, written for different readers. All describe
+the same code.
+
+## [The project explained for everyone](overview-for-everyone.md): no background needed
+
+For anyone, with no medical, engineering or AI background. What a CT scan
+is, what the spleen is, what the computer learns, how it is made fast, and
+how to read the results, with an FAQ. About 15 minutes.
 
 ## [Technical reference](reference/README.md): for experts
 
