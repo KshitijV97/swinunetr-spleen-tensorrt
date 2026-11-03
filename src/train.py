@@ -2,7 +2,7 @@
 
 Examples
 --------
-    # Tiny end-to-end check on a laptop (CPU or Apple GPU), ~minutes:
+    # Tiny end-to-end check on a laptop (CPU or Apple GPU); ~13 min on a MacBook Air:
     python -m src.train --smoke-test
 
     # Same, without downloading the real dataset (uses fake volumes):
