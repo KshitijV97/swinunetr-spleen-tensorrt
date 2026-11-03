@@ -57,6 +57,7 @@ def download_spleen(root_dir: str | Path, task: str = "Task09_Spleen") -> Path:
         filepath=root_dir / f"{task}.tar",
         output_dir=root_dir,
         hash_val=DecathlonDataset.md5[task],
+        hash_type="md5",  # MONAI ships an MD5; newer MONAI defaults to sha256
     )
     return task_dir
 
