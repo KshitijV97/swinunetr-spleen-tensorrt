@@ -1,0 +1,17 @@
+# Extra packages for the Google Colab (NVIDIA T4) run.
+# PyTorch is intentionally NOT listed: Colab ships a CUDA build of torch and
+# reinstalling it wastes ~10 minutes and can break CUDA compatibility.
+monai==1.6.1
+nibabel==5.4.2
+einops==0.8.2
+PyYAML==6.0.3
+tqdm==4.70.1
+requests==2.34.2   # used by MONAI's dataset downloader
+onnx==1.23.2
+onnxscript==0.7.2
+onnxruntime==1.31.1
+pytest==9.2.0
+# TensorRT for CUDA 12. Pinned to the 10.x series because src/trt_utils.py uses
+# the TensorRT 10 Python API (named tensors, execute_async_v3, BuilderFlag.FP16);
+# TensorRT 11 has not been tested with this code.
+tensorrt-cu12==10.16.1.11

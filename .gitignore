@@ -1,0 +1,33 @@
+# --- Data, model weights and compiled engines: never commit these ---
+# The MSD Spleen dataset is ~1.5 GB and has its own license (CC-BY-SA 4.0);
+# anyone can re-download it with `python -m src.data --download`.
+data/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.onnx.data
+*.engine
+*.plan
+*.trt
+*.tar
+*.nii
+*.nii.gz
+
+# Outputs of the local smoke test are not real results.
+results/smoke/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- OS / editors ---
+.DS_Store
+.vscode/
+.idea/
