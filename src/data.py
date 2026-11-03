@@ -4,8 +4,9 @@ Dataset
 -------
 Medical Segmentation Decathlon (MSD) Task09 Spleen: 41 labelled abdominal CT
 volumes (plus 20 unlabelled test volumes we do not use). Each label volume
-marks every voxel as 0 = background or 1 = spleen. Read docs/DATA.md for a
-longer explanation of CT, Hounsfield units and why each transform exists.
+marks every voxel as 0 = background or 1 = spleen. docs/reference/data.md
+documents each transform; docs/learn/01-the-medical-problem.md and
+02-images-as-signals.md explain CT, Hounsfield units and resampling from scratch.
 
 Usage
 -----

@@ -1,6 +1,6 @@
 # Running the full pipeline on Google Colab (T4 GPU)
 
-The notebook [`notebooks/colab_train_and_benchmark.ipynb`](../notebooks/colab_train_and_benchmark.ipynb)
+The notebook [`notebooks/colab_train_and_benchmark.ipynb`](../../notebooks/colab_train_and_benchmark.ipynb)
 does everything: install, test, download, train, export, benchmark and save
 results. This page walks through it and lists what can go wrong.
 
@@ -74,7 +74,7 @@ reinstall and re-download), skip section 6, and continue from section 7:
 2. Unzip it into `results/` in your local clone.
 3. Paste the table from `results/benchmark.md` into the README's **Results**
    section and fill in the other placeholders (see
-   [REPORTING_RESULTS.md](REPORTING_RESULTS.md)).
+   [author-notes/reporting-results.md](../author-notes/reporting-results.md)).
 4. Commit and push:
 
    ```bash
@@ -92,5 +92,5 @@ reinstall and re-download), skip section 6, and continue from section 7:
 | Session crashes with "used all available RAM" while loading data | Edit `data.cache_rate` to `0.5`, or add `--max-volumes 30` |
 | `pip` dependency-resolver warnings about Colab's preinstalled packages | Usually harmless. Check the `import torch, monai, tensorrt` cell prints versions |
 | `ModuleNotFoundError: tensorrt` | Re-run the install cell. Check that the `tensorrt-cu12` line in `requirements-colab.txt` installed |
-| TensorRT engine build fails | Read the error printed by the parser. See [ONNX_TENSORRT.md](ONNX_TENSORRT.md#6-common-problems) |
+| TensorRT engine build fails | Read the error printed by the parser. See [deployment.md](deployment.md#7-troubleshooting) |
 | `git clone` fails | The repository must be public, or you need to authenticate inside Colab |

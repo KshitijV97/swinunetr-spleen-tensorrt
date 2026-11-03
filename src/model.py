@@ -11,7 +11,8 @@ Swin Transformer encoder with a convolutional U-Net-style decoder:
       -> CNN decoder with skip connections from every encoder stage
       -> 1x1x1 conv to `out_channels` logits per voxel  (2, 96, 96, 96)
 
-docs/ARCHITECTURE.md walks through this in much more detail.
+docs/reference/architecture.md documents this in detail; docs/learn/07-swin-and-swinunetr.md
+explains it from first principles.
 
 Run ``python -m src.model`` to print the parameter count for the default config.
 """

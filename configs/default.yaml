@@ -6,7 +6,7 @@
 # The `smoke_test:` block at the bottom is merged on top when `--smoke-test`
 # is passed, so the tiny local configuration is visible in one place.
 #
-# See docs/TRAINING.md for an explanation of every value.
+# See docs/reference/training.md for an explanation of every value.
 # =============================================================================
 
 seed: 42
@@ -20,7 +20,7 @@ data:
   cache_rate: 1.0                # fraction of preprocessed volumes kept in RAM
   num_workers: 4
 
-  # Preprocessing (see docs/DATA.md for the reasoning behind each number)
+  # Preprocessing (see docs/reference/data.md for the reasoning behind each number)
   pixdim: [1.5, 1.5, 2.0]        # target voxel spacing in mm (x, y, z)
   hu_window: [-57, 164]          # CT intensity window (Hounsfield units) for soft tissue
   roi_size: [96, 96, 96]         # training crop size == model input size; must be divisible by 32

@@ -14,7 +14,7 @@ Backends
                       first use and cached at ``benchmark.engine_path``.
 Unavailable backends are skipped and recorded as such, never faked.
 
-What is timed (see docs/BENCHMARKING.md for the full methodology)
+What is timed (see docs/reference/benchmarking.md for the full methodology)
 -----------------------------------------------------------------
 Latency = wall-clock time for sliding-window inference over one whole,
 already-preprocessed validation volume that is already on the GPU, i.e. the

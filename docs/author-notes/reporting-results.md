@@ -11,7 +11,7 @@ honestly.
 | README placeholder | Where to find it |
 |---|---|
 | Benchmark table (all rows) | Copy `results/benchmark.md` as-is |
-| Best validation Dice (PyTorch, during training) | `training_history.json → best_val_dice` (and `best_epoch`) |
+| Best validation Dice (AMP, during training) | `training_history.json → best_val_dice` (and `best_epoch`) |
 | Epochs trained / training time | `training_history.json → config.train.epochs`, `train_minutes` |
 | Train / val volumes | `training_history.json → n_train`, `n_val` (should be 33 / 8) |
 | Parameters | `training_history.json → n_parameters` |
@@ -65,9 +65,9 @@ not use a number you did not measure.
 
 ## 5. Questions you should be ready for
 
-- *Why SwinUNETR rather than a 3D U-Net?* See [ARCHITECTURE.md §1](ARCHITECTURE.md#1-the-problem-it-solves).
-- *Why fixed input shapes for TensorRT?* See [ONNX_TENSORRT.md §2](ONNX_TENSORRT.md#2-step-1-export-to-onnx).
-- *What exactly does your latency number include?* See [BENCHMARKING.md §2](BENCHMARKING.md#2-what-one-latency-sample-is).
+- *Why SwinUNETR rather than a 3D U-Net?* See [the learning track, chapter 7](../learn/07-swin-and-swinunetr.md) and [architecture.md](../reference/architecture.md).
+- *Why fixed input shapes for TensorRT?* See [deployment.md §2](../reference/deployment.md#2-onnx-export).
+- *What exactly does your latency number include?* See [benchmarking.md §2](../reference/benchmarking.md#2-unit-of-measurement).
 - *How would this run inside a robot?* Rebuild the engine on the target GPU
   (e.g. Jetson Orin), add preprocessing on the GPU, possibly INT8, and
   integrate with the robot's perception stack (e.g. a ROS 2 node).
