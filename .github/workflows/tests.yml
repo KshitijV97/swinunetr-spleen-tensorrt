@@ -1,0 +1,32 @@
+# Runs the unit tests and a synthetic end-to-end smoke test (train -> ONNX
+# export -> benchmark) on a CPU-only GitHub runner. No dataset download and no
+# GPU are needed, so this checks that the code works, not how good the model is.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies (CPU-only PyTorch)
+        run: |
+          python -m pip install --upgrade pip
+          # The CPU wheel avoids downloading ~2 GB of CUDA libraries.
+          pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Unit tests
+        run: pytest -q
+      - name: Synthetic smoke test (train -> export -> benchmark)
+        run: |
+          python -m src.train --smoke-test --synthetic --device cpu
+          python -m src.export_onnx --smoke-test
+          python -m src.benchmark --smoke-test --synthetic --device cpu
