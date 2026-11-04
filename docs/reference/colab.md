@@ -38,7 +38,7 @@ Use **Runtime → Run all**, or run the cells one by one to watch each step.
 |---|---|---|
 | 1. GPU check | `nvidia-smi` | seconds |
 | 2. Google Drive (optional) | Mount Drive so checkpoints survive a disconnect. Click through Google's permission prompt | seconds |
-| 3. Clone + install | `git clone`, `pip install -r requirements-colab.txt` (includes TensorRT 10) | a few minutes |
+| 3. Clone + install | `git clone`, `pip install -r requirements-colab.txt`, then `tensorrt-cu12` or `tensorrt-cu13` (10.16.1.11) matching Colab's PyTorch CUDA version | a few minutes |
 | 4. Tests | `pytest` | under a minute |
 | 5. Download | MSD Spleen, ~1.5 GB, MD5-verified | a few minutes |
 | 6. Train | 150 epochs by default. The log prints elapsed seconds after every epoch | **the long step**; estimate from the first few epochs |
@@ -88,9 +88,10 @@ reinstall and re-download), skip section 6, and continue from section 7:
 | Problem | Fix |
 |---|---|
 | `nvidia-smi: command not found` | The runtime has no GPU. Change the runtime type to T4 |
-| `CUDA out of memory` during training | In `configs/default.yaml` set `model.use_checkpoint: true`, or pass `--feature-size 24` (and say so in the README) |
+| `CUDA out of memory` during training | Training stops with a message. In section 6 set `EXTRA_FLAGS = '--use-checkpoint'` and re-run that cell. If it still does not fit, add `--feature-size 24` (and say so in the README) |
 | Session crashes with "used all available RAM" while loading data | Edit `data.cache_rate` to `0.5`, or add `--max-volumes 30` |
 | `pip` dependency-resolver warnings about Colab's preinstalled packages | Usually harmless. Check the `import torch, monai, tensorrt` cell prints versions |
-| `ModuleNotFoundError: tensorrt` | Re-run the install cell. Check that the `tensorrt-cu12` line in `requirements-colab.txt` installed |
+| `ModuleNotFoundError: tensorrt` | Re-run the install cell in section 3. It prints which `tensorrt-cu…` wheel it chose; that must match `torch.version.cuda` |
+| A step fails | The notebook stops at that step and shows the error. The full output is in `results/logs/<step>.log` (on Drive if mounted), so it survives a disconnect |
 | TensorRT engine build fails | Read the error printed by the parser. See [deployment.md](deployment.md#7-troubleshooting) |
 | `git clone` fails | The repository must be public, or you need to authenticate inside Colab |

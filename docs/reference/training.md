@@ -138,7 +138,7 @@ compare backends whose Dice differs by a similar amount (see
 
 | Symptom | Likely cause | Action |
 |---|---|---|
-| CUDA OOM | $F = 48$, 4 × 96³ crops, activations | `use_checkpoint: true`, `num_samples: 2`, or $F = 24$ (report it) |
+| CUDA OOM | $F = 48$, 4 × 96³ crops, activations | `--use-checkpoint` (or `use_checkpoint: true`), `num_samples: 2`, or $F = 24$ (report it) |
 | Host OOM at cache time | `cache_rate: 1.0` on Colab RAM | `cache_rate: 0.5` or `--max-volumes` |
 | Dice ≈ 0 after many epochs | Image/label misalignment, wrong window | `pytest`, `python -m src.data --summary`, inspect one case |
 | NaN loss under AMP | FP16 overflow | Confirm with `--no-amp`, then lower LR |

@@ -46,7 +46,7 @@ smoke-test model the max absolute difference was ~1e-5.
 
 ## 3. TensorRT engine build
 
-`build_engine` (TensorRT 10 API, pinned `tensorrt-cu12==10.16.1.11`):
+`build_engine` (TensorRT 10 API, pinned `tensorrt-cu{12,13}==10.16.1.11` to match PyTorch's CUDA major):
 
 1. `create_network(0)` (explicit batch is the only mode in TRT 10), then
    `OnnxParser`. Parse errors are surfaced verbatim.
@@ -122,7 +122,7 @@ are, in order: FP32 pinning of normalisation and softmax layers with
 
 | Problem | Cause / fix |
 |---|---|
-| `ModuleNotFoundError: tensorrt` | `pip install -r requirements-colab.txt` |
+| `ModuleNotFoundError: tensorrt` | `pip install tensorrt-cu<12 or 13>==10.16.1.11`, matching `torch.version.cuda` (the notebook does this) |
 | Parser: unsupported op | Opset < 17 or stale `onnx`. Re-export |
 | `Could not load ...engine` | Built on another GPU or TensorRT version. Use `--rebuild-engine` |
 | LayerNorm-in-FP16 overflow warning | Check Dice. If it is degraded, pin those layers to FP32 |

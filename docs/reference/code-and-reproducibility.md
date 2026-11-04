@@ -60,8 +60,9 @@ kernels. See [training.md §8](training.md#8-determinism).
 
 - `requirements.txt`: fully pinned local environment (Python 3.12, macOS arm64
   verified, CPU/MPS torch 2.15.0).
-- `requirements-colab.txt`: pinned extras only. It keeps Colab's CUDA torch
-  and adds `tensorrt-cu12==10.16.1.11`, whose 10.x API `trt_utils.py` targets.
+- `requirements-colab.txt`: pinned extras only. It keeps Colab's CUDA torch.
+  The notebook then installs `tensorrt-cu12` or `tensorrt-cu13` `==10.16.1.11`,
+  matching `torch.version.cuda`; the 10.x API is what `trt_utils.py` targets.
 
 ## Tests
 
