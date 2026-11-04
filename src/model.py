@@ -19,6 +19,7 @@ Run ``python -m src.model`` to print the parameter count for the default config.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Sequence
 
 import torch
@@ -71,6 +72,12 @@ def load_checkpoint(path, device: torch.device | str = "cpu") -> tuple[SwinUNETR
     always rebuilt with the right ``feature_size`` even if the YAML file has
     changed since.
     """
+    if not Path(path).exists():
+        raise SystemExit(
+            f"No checkpoint at {path}. Training has not saved a model yet: run "
+            "`python -m src.train` first and check its output for errors. best.pt is "
+            "written at the first validation (epoch `train.val_interval`)."
+        )
     ckpt = torch.load(path, map_location=device, weights_only=False)
     model = build_model(ckpt["config"]["model"])
     model.load_state_dict(ckpt["model_state"])

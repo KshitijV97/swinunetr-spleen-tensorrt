@@ -57,6 +57,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument("--feature-size", type=int, help="override model.feature_size")
     p.add_argument("--checkpoint-dir", help="override train.checkpoint_dir")
     p.add_argument("--no-amp", action="store_true", help="disable mixed precision")
+    p.add_argument("--use-checkpoint", action="store_true",
+                   help="gradient checkpointing: much less GPU memory, ~30%% slower")
     return p.parse_args(argv)
 
 
@@ -78,6 +80,8 @@ def build_config(args: argparse.Namespace) -> dict[str, Any]:
     for (section, key), value in overrides.items():
         if value is not None:
             cfg[section][key] = value
+    if args.use_checkpoint:
+        cfg["model"]["use_checkpoint"] = True
     if args.no_amp:
         cfg["train"]["amp"] = False
     return cfg
@@ -186,7 +190,16 @@ def train(cfg: dict[str, Any], device: torch.device) -> dict[str, Any]:
 def main(argv=None) -> None:
     args = parse_args(argv)
     cfg = build_config(args)
-    train(cfg, get_device(args.device))
+    try:
+        train(cfg, get_device(args.device))
+    except torch.cuda.OutOfMemoryError:
+        raise SystemExit(
+            "\nCUDA out of memory: SwinUNETR (feature_size="
+            f"{cfg['model']['feature_size']}) with {cfg['data']['num_samples']} crops of "
+            f"{cfg['data']['roi_size']} per step does not fit on this GPU.\n"
+            "Re-run with --use-checkpoint (same model, less memory, slower). If it still "
+            "does not fit, add --feature-size 24 and report that in the README."
+        )
 
 
 if __name__ == "__main__":
