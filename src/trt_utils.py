@@ -37,7 +37,10 @@ def _require_tensorrt():
     try:
         import tensorrt as trt
     except ImportError as e:  # pragma: no cover - depends on the machine
-        raise RuntimeError("TensorRT is not installed. Run: pip install -r requirements-colab.txt") from e
+        raise RuntimeError(
+            "TensorRT is not installed. Run: pip install tensorrt-cu<12 or 13>==10.16.1.11, "
+            f"matching PyTorch's CUDA {torch.version.cuda}"
+        ) from e
     return trt
 
 

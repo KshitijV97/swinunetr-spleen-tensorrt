@@ -11,7 +11,10 @@ onnx==1.23.2
 onnxscript==0.7.2
 onnxruntime==1.31.1
 pytest==9.2.0
-# TensorRT for CUDA 12. Pinned to the 10.x series because src/trt_utils.py uses
-# the TensorRT 10 Python API (named tensors, execute_async_v3, BuilderFlag.FP16);
-# TensorRT 11 has not been tested with this code.
-tensorrt-cu12==10.16.1.11
+# TensorRT is NOT listed here: its wheel must match the CUDA major version of
+# the installed PyTorch (Colab's was torch 2.11 + CUDA 13.0 in Nov 2026). The
+# notebook installs
+#   tensorrt-cu<12|13>==10.16.1.11
+# picking the suffix from torch.version.cuda. It is pinned to 10.x because
+# src/trt_utils.py uses the TensorRT 10 Python API (named tensors,
+# execute_async_v3, BuilderFlag.FP16); TensorRT 11 has not been tested.

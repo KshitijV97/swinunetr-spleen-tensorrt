@@ -17,6 +17,7 @@ checkpoints/
 
 # Outputs of the local smoke test are not real results.
 results/smoke/
+results/logs/
 
 # --- Python ---
 __pycache__/
