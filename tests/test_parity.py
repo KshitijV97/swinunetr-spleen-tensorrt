@@ -196,3 +196,63 @@ def test_onnx_export_passes_fp32_gate(tiny_model, exported):
 def test_ort_predictor_rejects_wrong_spatial_shape(exported):
     with pytest.raises(ValueError):
         ORTPredictor(exported)(torch.rand(1, 1, 32, 64, 64))
+
+
+# -----------------------------------------------------------------------------
+# Stale-engine protection (pure file logic, so it runs without a GPU)
+# -----------------------------------------------------------------------------
+def _fake_engine(tmp_path, recorded):
+    """An engine file plus the build record build_engine would have written."""
+    import json
+
+    from src.trt_utils import engine_meta_path
+
+    engine = tmp_path / "model.engine"
+    engine.write_bytes(b"not a real engine")
+    if recorded is not None:
+        engine_meta_path(engine).write_text(json.dumps(recorded))
+    return engine
+
+
+EXPECTED = {"onnx_sha256": "aaa", "tensorrt": "10.16.1", "gpu": "Tesla T4", "precision": "fp16"}
+
+
+def test_engine_matching_its_build_record_is_reused(tmp_path):
+    from src.trt_utils import engine_stale_reason
+
+    assert engine_stale_reason(_fake_engine(tmp_path, EXPECTED), EXPECTED) is None
+
+
+@pytest.mark.parametrize("key, value", [
+    ("onnx_sha256", "bbb"),     # the bug this guards against: ONNX re-exported, engine not rebuilt
+    ("tensorrt", "10.17.0"),    # engines do not survive a TensorRT upgrade
+    ("gpu", "NVIDIA L4"),       # or a move to another GPU model
+])
+def test_engine_is_stale_when_any_input_changed(tmp_path, key, value):
+    from src.trt_utils import engine_stale_reason
+
+    reason = engine_stale_reason(_fake_engine(tmp_path, {**EXPECTED, key: value}), EXPECTED)
+    assert reason is not None and key in reason
+
+
+def test_engine_without_build_record_is_stale(tmp_path):
+    """An engine built before build records existed has unknown provenance: rebuild it."""
+    from src.trt_utils import engine_stale_reason
+
+    assert "no build record" in engine_stale_reason(_fake_engine(tmp_path, None), EXPECTED)
+
+
+def test_missing_engine_is_stale(tmp_path):
+    from src.trt_utils import engine_stale_reason
+
+    assert engine_stale_reason(tmp_path / "absent.engine", EXPECTED) == "no engine on disk"
+
+
+def test_file_sha256_changes_with_content(tmp_path):
+    from src.utils import file_sha256
+
+    f = tmp_path / "x.onnx"
+    f.write_bytes(b"graph v1")
+    first = file_sha256(f)
+    f.write_bytes(b"graph v2")
+    assert file_sha256(f) != first

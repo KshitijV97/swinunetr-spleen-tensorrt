@@ -94,7 +94,7 @@ queue, or a DMA command list.
 Consequences:
 - **Timing needs synchronisation.** Without `torch.cuda.synchronize()` you
   measure how fast Python can enqueue work, not how fast the GPU does it
-  (chapter 11).
+  (chapter 12).
 - **Launch overhead.** Each kernel launch costs a few microseconds of CPU
   time. A model made of many tiny ops can be limited by launches rather than
   by maths. Fusion helps here too.
@@ -229,6 +229,7 @@ remaining gap is due to compilation.
 - Engine build and runtime wrapper: [`src/trt_utils.py`](../../src/trt_utils.py).
 - Where the three backends are run:
   [`src/benchmark.py`](../../src/benchmark.py) → `main`.
+- How we check the converted model still matches the original: chapter 11.
 - The compact version: [deployment reference](../reference/deployment.md).
 
 **Check yourself**
@@ -240,4 +241,4 @@ remaining gap is due to compilation.
 4. If TensorRT FP16 is 3× faster than FP32 and AMP is 2.5× faster, what does
    that say about where the speed-up comes from?
 
-Next: [11. Benchmarking honestly →](11-benchmarking-honestly.md)
+Next: [11. Is the fast model still the same model? →](11-the-parity-gate.md)

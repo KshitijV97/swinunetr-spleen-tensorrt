@@ -1,4 +1,4 @@
-# 12. Software engineering of this repo
+# 13. Software engineering of this repo
 
 > **Summary.** This is the chapter where your existing experience applies
 > most directly. ML code has the usual engineering needs plus a few of its
@@ -12,7 +12,7 @@
 
 ---
 
-## 12.1 Layout and data flow
+## 13.1 Layout and data flow
 
 ```
 configs/default.yaml   ─┐
@@ -36,7 +36,7 @@ results), not shared state. You can rerun any stage alone, inspect its
 output, or run it on a different machine. It's a pipeline of pure-ish
 functions with artefacts in between.
 
-## 12.2 Configuration: one source of truth, layered
+## 13.2 Configuration: one source of truth, layered
 
 Settings come from three layers, each overriding the previous one:
 
@@ -52,7 +52,7 @@ Settings come from three layers, each overriding the previous one:
 layered config in most server frameworks (defaults → environment file →
 flags).
 
-## 12.3 Provenance: every number knows where it came from
+## 13.3 Provenance: every number knows where it came from
 
 - The **fully merged config** is saved inside every checkpoint and every
   results JSON.
@@ -66,7 +66,7 @@ flags).
 The software analogy is embedding the git SHA and build flags in a binary.
 For ML results it's the difference between a number and a claim.
 
-## 12.4 Determinism and its limits
+## 13.4 Determinism and its limits
 
 `set_seed` seeds Python's `random`, NumPy, PyTorch and MONAI. The train/val
 split additionally sorts the file list before shuffling, so it doesn't depend
@@ -75,7 +75,7 @@ isn't guaranteed: bit-identical GPU results, because some CUDA kernels use
 atomic additions in non-deterministic order (chapter 8). The docs say so
 rather than overclaiming.
 
-## 12.5 Handling hardware differences explicitly
+## 13.5 Handling hardware differences explicitly
 
 | Situation | How the code handles it |
 |---|---|
@@ -88,7 +88,7 @@ rather than overclaiming.
 The guarded import is the key trick: optional, platform-specific
 dependencies behave like plugins, so the core code runs everywhere.
 
-## 12.6 Testing ML code without data or a GPU
+## 13.6 Testing ML code without data or a GPU
 
 Testing ML code is awkward. "Is the model good?" can't be a unit test, and
 real data is large and licensed. The repo tests the things that *can* be
@@ -111,7 +111,7 @@ end-to-end on synthetic data on a CPU runner, train → export → benchmark,
 for every push. It proves the code *runs*, not that the model is *good*.
 Model quality is measured by the Colab run and reported with caveats.
 
-## 12.7 What's deliberately not in git
+## 13.7 What's deliberately not in git
 
 - The dataset: large, and licensed separately. Anyone can re-download it,
   and the checksum is verified.
@@ -123,7 +123,7 @@ Model quality is measured by the Colab run and reported with caveats.
 Only small, human-readable results (`results/*.json`, `benchmark.md`, the
 training-curve PNG) get committed after the real run.
 
-## 12.8 Honesty as an engineering requirement
+## 13.8 Honesty as an engineering requirement
 
 A few rules run through the codebase and docs:
 
@@ -135,7 +135,7 @@ A few rules run through the codebase and docs:
 These matter more in ML than in most software, because a plausible-looking
 wrong number is easy to produce and hard to detect.
 
-## 12.9 How to extend the project
+## 13.9 How to extend the project
 
 | You want to... | Change |
 |---|---|
@@ -162,4 +162,4 @@ wrong number is easy to produce and hard to detect.
 - [`tests/`](../../tests/) and [`.github/workflows/tests.yml`](../../.github/workflows/tests.yml).
 - The compact version: [code and reproducibility reference](../reference/code-and-reproducibility.md).
 
-Next: [13. Where to go next →](13-where-to-go-next.md)
+Next: [14. Where to go next →](14-where-to-go-next.md)

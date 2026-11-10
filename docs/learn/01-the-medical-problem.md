@@ -101,7 +101,7 @@ slices, about 100–200 million voxels' worth of 16-bit integers.
 
 > If you want the full maths with an EE flavour, *Principles of
 > Computerized Tomographic Imaging* by Kak & Slaney is free online (see
-> [chapter 13](13-where-to-go-next.md)).
+> [chapter 14](14-where-to-go-next.md)).
 
 ## 1.4 Hounsfield units: the numbers inside the array
 

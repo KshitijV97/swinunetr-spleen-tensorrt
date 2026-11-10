@@ -42,7 +42,7 @@ problems:
 positions per axis, through-plane $\lceil 34/48 \rceil + 1 = 2$. That's
 $5 \times 5 \times 2 = 50$ windows, so **13 forward passes** of batch 4 (the
 last one has 2 real windows plus 2 padding). Latency is roughly proportional
-to that window count, which is why bigger scans take longer (chapter 11).
+to that window count, which is why bigger scans take longer (chapter 12).
 
 **The DSP connection.** This is overlap-add, with the Gaussian as the
 analysis/synthesis window. Why taper? Near a window's edge, the network's

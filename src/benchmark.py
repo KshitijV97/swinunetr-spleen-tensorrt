@@ -11,7 +11,8 @@ Backends
 * ``pytorch_amp``   - same weights under ``torch.autocast(float16)``. CUDA only.
 * ``tensorrt_fp16`` - the ONNX export compiled by TensorRT with FP16 enabled.
                       CUDA + ``tensorrt`` package only; the engine is built on
-                      first use and cached at ``benchmark.engine_path``.
+                      first use, cached at ``benchmark.engine_path``, and
+                      rebuilt when the ONNX file, TensorRT or GPU changes.
 Unavailable backends are skipped and recorded as such, never faked.
 
 What is timed (see docs/reference/benchmarking.md for the full methodology)
@@ -169,17 +170,15 @@ def main(argv=None) -> None:
     engine_info: dict[str, Any] = {}
     if device.type == "cuda":
         # Imported here, never at module level: tensorrt only exists on CUDA machines.
-        from src.trt_utils import TRTPredictor, build_engine, tensorrt_available
+        from src.trt_utils import TRTPredictor, ensure_engine, tensorrt_available
 
         if tensorrt_available():
             onnx_path = resolve_path(cfg["export"]["onnx_path"])
             engine_path = resolve_path(cfg["benchmark"]["engine_path"])
             if not onnx_path.exists():
                 raise SystemExit(f"{onnx_path} not found - run `python -m src.export_onnx` first.")
-            if args.rebuild_engine or not engine_path.exists():
-                print(f"Building TensorRT FP16 engine from {onnx_path} (takes a few minutes)...")
-                engine_info = build_engine(onnx_path, engine_path, fp16=True,
-                                           workspace_gb=cfg["benchmark"]["workspace_gb"])
+            engine_info = ensure_engine(onnx_path, engine_path, cfg["benchmark"]["workspace_gb"],
+                                        force=args.rebuild_engine)
             import tensorrt as trt
 
             env["tensorrt"] = trt.__version__

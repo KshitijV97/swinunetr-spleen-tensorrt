@@ -17,6 +17,16 @@ specific GPU model and TensorRT version:
 An engine built on a T4 will not load on a different GPU or TensorRT version,
 which is why ``.engine`` files are git-ignored and rebuilt on demand.
 
+Stale engines
+-------------
+Building takes minutes, so engines are cached on disk. The danger of a cache:
+re-export the ONNX file, forget to rebuild, and every later test silently runs
+the *old* engine. To prevent that, ``build_engine`` writes a small sidecar
+file next to the engine (``<engine>.json``) recording the SHA-256 of the ONNX
+file it was built from, the TensorRT version and the GPU name.
+``ensure_engine`` compares that record with the current situation and
+rebuilds on any mismatch.
+
 This module uses the TensorRT 10 Python API (pinned in requirements-colab.txt) (``execute_async_v3`` with named
 tensors) and shares GPU memory directly with PyTorch tensors, so no extra
 CUDA bindings package (pycuda / cuda-python) is needed.
@@ -24,10 +34,14 @@ CUDA bindings package (pycuda / cuda-python) is needed.
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
+from typing import Any
 
 import torch
+
+from src.utils import file_sha256
 
 
 def _require_tensorrt():
@@ -84,12 +98,68 @@ def build_engine(onnx_path: Path, engine_path: Path, fp16: bool = True, workspac
     engine_path.parent.mkdir(parents=True, exist_ok=True)
     with open(engine_path, "wb") as f:
         f.write(serialized)
+    meta = {
+        "onnx_sha256": file_sha256(onnx_path),
+        "tensorrt": trt.__version__,
+        "gpu": torch.cuda.get_device_name(0),
+        "precision": "fp16" if fp16 else "fp32",
+    }
+    engine_meta_path(engine_path).write_text(json.dumps(meta, indent=2) + "\n")
     return {
+        **meta,
         "build_seconds": time.time() - start,
         "engine_size_mb": engine_path.stat().st_size / 2**20,
-        "precision": "fp16" if fp16 else "fp32",
-        "tensorrt": trt.__version__,
     }
+
+
+def engine_meta_path(engine_path: Path) -> Path:
+    """Where the sidecar record for ``engine_path`` lives: ``<engine>.json``."""
+    return engine_path.with_name(engine_path.name + ".json")
+
+
+def engine_stale_reason(engine_path: Path, expected: dict[str, Any]) -> str | None:
+    """Why the cached engine cannot be trusted, or ``None`` if it can.
+
+    ``expected`` holds what the engine *should* have been built from, with the
+    same keys ``build_engine`` records (``onnx_sha256``, ``tensorrt``, ``gpu``,
+    ``precision``). Pure file and dict logic, so it is unit-tested on CPU.
+    """
+    if not engine_path.exists():
+        return "no engine on disk"
+    meta_path = engine_meta_path(engine_path)
+    if not meta_path.exists():
+        return f"no build record ({meta_path.name}); provenance unknown"
+    try:
+        recorded = json.loads(meta_path.read_text())
+    except json.JSONDecodeError:
+        return f"unreadable build record ({meta_path.name})"
+    for key, want in expected.items():
+        if recorded.get(key) != want:
+            return f"{key} changed: engine built from {recorded.get(key)!r}, now {want!r}"
+    return None
+
+
+def ensure_engine(onnx_path: Path, engine_path: Path, workspace_gb: float,
+                  force: bool = False) -> dict[str, Any]:
+    """Return a TensorRT FP16 engine for ``onnx_path``, rebuilding only if needed.
+
+    Reuses the cached engine when its build record matches the current ONNX
+    file, TensorRT version and GPU; otherwise (or with ``force``) rebuilds it.
+    The returned dict says which happened and why, for the results file.
+    """
+    trt = _require_tensorrt()
+    expected = {
+        "onnx_sha256": file_sha256(onnx_path),
+        "tensorrt": trt.__version__,
+        "gpu": torch.cuda.get_device_name(0),
+        "precision": "fp16",
+    }
+    reason = "--rebuild-engine requested" if force else engine_stale_reason(engine_path, expected)
+    if reason is None:
+        return {"engine_path": str(engine_path), "rebuilt": False, **expected}
+    print(f"Building TensorRT FP16 engine from {onnx_path} ({reason}); takes a few minutes...")
+    info = build_engine(onnx_path, engine_path, fp16=True, workspace_gb=workspace_gb)
+    return {"engine_path": str(engine_path), "rebuilt": True, "rebuild_reason": reason, **info}
 
 
 class TRTPredictor:

@@ -52,7 +52,6 @@ if any backend fails a check, so CI can block the change.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import math
 from contextlib import contextmanager
 from pathlib import Path
@@ -62,7 +61,7 @@ import numpy as np
 import torch
 
 from src.model import load_checkpoint
-from src.utils import environment_info, load_config, resolve_path, save_json
+from src.utils import environment_info, file_sha256, load_config, resolve_path, save_json
 
 Predictor = Callable[[torch.Tensor], torch.Tensor]
 
@@ -266,18 +265,17 @@ def make_backend(name: str, model: torch.nn.Module, device: torch.device,
     if name == "tensorrt_fp16":
         if device.type != "cuda":
             return "needs CUDA"
-        from src.trt_utils import TRTPredictor, build_engine, tensorrt_available
+        from src.trt_utils import TRTPredictor, ensure_engine, tensorrt_available
 
         if not tensorrt_available():
             return "tensorrt not installed"
         if not onnx_path.exists():
             return f"{onnx_path} not found - run `python -m src.export_onnx` first"
         engine_path = resolve_path(cfg["benchmark"]["engine_path"])
-        info: dict[str, Any] = {"engine_path": str(engine_path)}
-        if rebuild_engine or not engine_path.exists():
-            print(f"Building TensorRT FP16 engine from {onnx_path} ...")
-            info.update(build_engine(onnx_path, engine_path, fp16=True,
-                                     workspace_gb=cfg["benchmark"]["workspace_gb"]))
+        # ensure_engine rebuilds if the cached engine came from a different
+        # ONNX file, TensorRT version or GPU, so the gate never judges a stale engine.
+        info = ensure_engine(onnx_path, engine_path, cfg["benchmark"]["workspace_gb"],
+                             force=rebuild_engine)
         return TRTPredictor(engine_path), "fp16", device, info
     raise ValueError(f"unknown backend {name!r}; choose from {ALL_BACKENDS}")
 
@@ -337,19 +335,12 @@ def run_volumes(model: torch.nn.Module, predictor: Predictor, volumes, ref_devic
     return {"metrics": metrics, "checks": judge(metrics, tier, CHECKS + VOLUME_CHECKS)}
 
 
-def file_sha256(path: Path, chunk: int = 2**20) -> str:
-    """Content hash, so a report always names exactly which checkpoint it judged."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while block := f.read(chunk):
-            h.update(block)
-    return h.hexdigest()
-
-
 def to_markdown(report: dict[str, Any]) -> str:
     """Render the gate outcome as a table for a CI summary or PR comment."""
+    onnx = report.get("onnx_sha256")
     lines = [f"Parity gate: **{'PASS' if report['passed'] else 'FAIL'}** "
-             f"(checkpoint `{report['checkpoint_sha256'][:12]}`)", "",
+             f"(checkpoint `{report['checkpoint_sha256'][:12]}`"
+             f"{f', ONNX `{onnx[:12]}`' if onnx else ''})", "",
              "| Backend | Tier | Level | Check | Value | Threshold | Result |",
              "|---|---|---|---|---:|---:|---|"]
     for b in report["backends"]:
@@ -432,10 +423,13 @@ def main(argv=None) -> None:
         backends.append(entry)
 
     ran = [b for b in backends if b["status"] == "ok"]
+    onnx_path = resolve_path(cfg["export"]["onnx_path"])
     report = {
         "passed": bool(ran) and all(b["passed"] for b in ran),
         "checkpoint": str(ckpt_path),
         "checkpoint_sha256": file_sha256(ckpt_path),
+        # The ONNX file every non-PyTorch backend was built from (None if not exported yet).
+        "onnx_sha256": file_sha256(onnx_path) if onnx_path.exists() else None,
         "input_shape": list(input_shape),
         "golden_batches": pcfg["golden_batches"],
         "volumes": len(volumes),

@@ -8,6 +8,7 @@ exactly the same way.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import platform
 import random
@@ -178,6 +179,20 @@ def environment_info() -> dict[str, Any]:
         info["cuda"] = torch.version.cuda
         info["cudnn"] = torch.backends.cudnn.version()
     return info
+
+
+def file_sha256(path: str | Path, chunk: int = 2**20) -> str:
+    """Hex SHA-256 of a file's bytes, read in 1 MiB chunks.
+
+    Used as a fingerprint: two files with the same hash have identical
+    contents, so a report or a cached engine can name exactly which
+    checkpoint or ONNX file it came from.
+    """
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while block := f.read(chunk):
+            h.update(block)
+    return h.hexdigest()
 
 
 def save_json(obj: Any, path: str | Path) -> Path:

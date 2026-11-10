@@ -82,7 +82,7 @@ immediately.
 sliding-window inference (real activation statistics and Dice).
 
 **Outputs.** `results/parity.json` (all metrics, flips by margin bucket,
-checkpoint SHA-256, environment, tiers used) and `results/parity.md` (a
+checkpoint and ONNX SHA-256, engine build record, environment, tiers used) and `results/parity.md` (a
 check table for a CI summary). Exit status 1 if any backend that ran fails,
 or if no backend could run.
 
@@ -114,9 +114,14 @@ threshold with headroom above the worst observed value.
 5. Serialised to `checkpoints/swinunetr_spleen_fp16.engine`. Build time and
    size go to `benchmark.json → tensorrt_engine`.
 
-The engine is built on the first benchmark run and reused afterwards
-(`--rebuild-engine` forces a rebuild). Engines are specific to the GPU
-architecture and TensorRT version, so they are git-ignored.
+The engine is built on first use and reused afterwards. `build_engine`
+writes a build record next to it (`<engine>.json`: ONNX SHA-256, TensorRT
+version, GPU name, precision); `ensure_engine` reuses the engine only if that
+record matches the current ONNX file, TensorRT and GPU, and otherwise
+rebuilds and records why (`rebuilt`, `rebuild_reason`). Both the benchmark
+and the parity gate go through `ensure_engine`, so neither can test an engine
+built from an older export. `--rebuild-engine` forces a rebuild. Engines are
+specific to the GPU architecture and TensorRT version, so they are git-ignored.
 
 **Not done:** INT8 (would need calibration data and an accuracy study),
 explicit FP32 pinning of LayerNorm/softmax, dynamic-shape profiles, CUDA
@@ -178,6 +183,6 @@ are, in order: FP32 pinning of normalisation and softmax layers with
 |---|---|
 | `ModuleNotFoundError: tensorrt` | `pip install tensorrt-cu<12 or 13>==10.16.1.11`, matching `torch.version.cuda` (the notebook does this) |
 | Parser: unsupported op | Opset < 17 or stale `onnx`. Re-export |
-| `Could not load ...engine` | Built on another GPU or TensorRT version. Use `--rebuild-engine` |
+| `Could not load ...engine` | Built on another GPU or TensorRT version. Normally caught by the build record; if the record is wrong, use `--rebuild-engine` |
 | LayerNorm-in-FP16 overflow warning | Check Dice. If it is degraded, pin those layers to FP32 |
 | Build OOM / killed | Lower `workspace_gb` |
