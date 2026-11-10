@@ -142,11 +142,15 @@ def set_seed(seed: int) -> None:
     Note: GPU kernels are not all deterministic, so two CUDA runs can still
     differ slightly in the last decimal places.
     """
+    # Imported here so importing utils does not require MONAI up front.
     from monai.utils import set_determinism
 
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    # Each library keeps its own random-number generator, so each needs a seed.
+    random.seed(seed)           # Python's built-in `random`
+    np.random.seed(seed)        # NumPy (e.g. data shuffling)
+    torch.manual_seed(seed)     # PyTorch CPU and CUDA (e.g. weight init, dropout)
+    # MONAI: seeds its own transforms and also sets PyTorch/cuDNN to deterministic
+    # mode (slower, but repeatable).
     set_determinism(seed=seed)
 
 
