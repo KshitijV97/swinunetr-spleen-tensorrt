@@ -1,4 +1,4 @@
-# 13. Where to go next
+# 14. Where to go next
 
 A short, opinionated list, ordered within each section from "start here" to
 "go deeper". Most items are free.
@@ -93,6 +93,6 @@ A short, opinionated list, ordered within each section from "start here" to
    §8.10.
 5. Read chapters 9–11 when the benchmark finishes, and check the real numbers
    against the back-of-envelope bound in §10.3.
-6. Do the exercises at the end of [chapter 12](12-software-engineering-of-this-repo.md).
+6. Do the exercises at the end of [chapter 13](13-software-engineering-of-this-repo.md).
 
 Back to the [learning track index](README.md) · [Glossary](glossary.md)

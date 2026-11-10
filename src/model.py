@@ -32,6 +32,12 @@ INPUT_DIVISOR = 32
 
 def validate_roi(roi_size: Sequence[int]) -> None:
     """Raise a clear error if a crop size would break SwinUNETR's downsampling."""
+    # Analogy: like a 
+    #  checking every guest before the club opens. The
+    # network halves the volume 5 times, so each side must split evenly; a side
+    # like 100 would end up as a fractional voxel. Better to turn it away at the
+    # door (here) than fail with a cryptic shape error deep inside the model.
+    # `s % 32` is 0 (falsy) when OK, non-zero (truthy) when a side is bad.
     bad = [s for s in roi_size if s % INPUT_DIVISOR]
     if bad:
         raise ValueError(
@@ -71,16 +77,63 @@ def load_checkpoint(path, device: torch.device | str = "cpu") -> tuple[SwinUNETR
     The checkpoint stores the config it was trained with, so the model is
     always rebuilt with the right ``feature_size`` even if the YAML file has
     changed since.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Checkpoint file, e.g. ``checkpoints/best.pt``.
+    device : torch.device or str, default "cpu"
+        Where to place the weights, e.g. ``"cuda"``. The returned model lives
+        on this device.
+
+    Returns
+    -------
+    model : SwinUNETR
+        The network with trained weights loaded, in eval mode.
+    ckpt : dict
+        The full checkpoint dict: ``model_state`` (weights), ``config`` (the
+        training config), ``epoch`` and, for ``best.pt``, ``val_dice``.
+        Callers use ``ckpt["config"]`` to read the shapes used in training.
+
+    Raises
+    ------
+    SystemExit
+        If ``path`` does not exist, with a message telling the user to train
+        first. (This ends the program rather than raising a catchable error.)
+
+    Notes
+    -----
+    Technically, a checkpoint holds only numbers (the ``state_dict``: a map from
+    layer-parameter names to tensors), not the code of the network. So loading
+    has two parts: build an empty network of the right architecture, then copy
+    the saved numbers into it. ``load_state_dict`` is strict by default, so it
+    errors if the architecture does not match the saved names and shapes.
+
+    ``weights_only=False`` lets ``torch.load`` unpickle arbitrary Python
+    objects, which is needed because the checkpoint contains the config dict.
+    Only load checkpoints you trust, since unpickling can execute code.
+
+    Analogy: the checkpoint is the instruction sheet and the saved settings of
+    a machine. You first build a blank machine from the sheet (architecture),
+    then dial in the saved settings (weights), and switch it to "run" mode.
     """
+    # Fail early with an actionable message instead of a raw FileNotFoundError.
     if not Path(path).exists():
         raise SystemExit(
             f"No checkpoint at {path}. Training has not saved a model yet: run "
             "`python -m src.train` first and check its output for errors. best.pt is "
             "written at the first validation (epoch `train.val_interval`)."
         )
+    # Read the file. map_location puts tensors straight on `device`, so a model
+    # trained on GPU still loads on a CPU-only machine.
     ckpt = torch.load(path, map_location=device, weights_only=False)
+    # Rebuild the architecture from the config saved *inside* the checkpoint
+    # (not the current YAML), so the layer shapes match the saved weights.
     model = build_model(ckpt["config"]["model"])
+    # Copy the trained weights into the freshly built (randomly initialised) model.
     model.load_state_dict(ckpt["model_state"])
+    # Ensure the model is on `device`, and switch to eval mode: this disables
+    # dropout / stochastic depth so outputs are deterministic for inference/export.
     model.to(device).eval()
     return model, ckpt
 

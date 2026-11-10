@@ -44,6 +44,60 @@ Random inputs exercise the arithmetic, not realistic activation statistics.
 Real-data parity is measured downstream by per-backend Dice. On the
 smoke-test model the max absolute difference was ~1e-5.
 
+### 2.1 Parity gate
+
+`python -m src.parity` (`src/parity.py`) is the full gate. The export check above is a quick sanity
+check at export time; this gate judges every deployed backend and is meant to
+block a change in CI.
+
+**Reference.** The PyTorch checkpoint in true FP32 (`cudnn.allow_tf32` and
+`cuda.matmul.allow_tf32` both off).
+
+**Candidates and tiers.** Each backend is judged by the tier of its precision
+(`parity.tiers` in `configs/default.yaml`):
+
+| Backend | Tier | Default |
+|---|---|---|
+| `onnxruntime` (CPU EP) | `fp32` | yes |
+| `tensorrt_fp16` | `fp16` | yes (skipped without CUDA/TensorRT) |
+| `pytorch_autocast` | `fp16` on CUDA, `bf16` on CPU | opt-in: CPU bf16 is ~15x slower than fp32 on Apple Silicon |
+| (TensorRT INT8) | `int8` | tier reserved, backend not yet implemented |
+
+**Checks** (a check runs only if its tier sets the threshold):
+
+| Metric | Meaning | Why |
+|---|---|---|
+| `fraction_within_tolerance` | share of logits with $\lvert z_\text{ref}-z\rvert \le \text{atol} + \text{rtol}\lvert z_\text{ref}\rvert$ | 1.0 for fp32 (a miss means a different graph); < 1 for reduced precision, where every logit legitimately moves |
+| `cosine_similarity` | angle between flattened logit tensors | catches global distortions that elementwise counts dilute |
+| `flip_rate` | share of voxels whose argmax changed | the task-level effect of numeric error |
+| `confident_flips` | flips where the reference top-2 margin > `margin_threshold` | must be 0 in every tier: a flip on a confident voxel cannot be rounding noise |
+| `foreground_dice_between_backends` | Dice of the two foreground masks | agreement on the organ itself, not the background |
+| `dice_drop` (volumes only) | Dice vs label, reference minus candidate | the clinical metric must not regress |
+
+A non-finite candidate output (NaN/Inf, typically an FP16 overflow) fails
+immediately.
+
+**Inputs.** `golden_batches` fixed-seed $U(0,1)$ batches of the exported shape
+(no dataset needed), plus `--volumes N` whole validation volumes through
+sliding-window inference (real activation statistics and Dice).
+
+**Outputs.** `results/parity.json` (all metrics, flips by margin bucket,
+checkpoint and ONNX SHA-256, engine build record, environment, tiers used) and `results/parity.md` (a
+check table for a CI summary). Exit status 1 if any backend that ran fails,
+or if no backend could run.
+
+**Measured on CPU** (smoke-test model and a tiny untrained model; `tests/test_parity.py`):
+
+| Candidate | fp32 tier | fp16 tier |
+|---|---|---|
+| ONNX Runtime | pass (max diff 1.0e-5, flip rate 1.3e-6 golden / 9.4e-6 volume) | |
+| Weights, input and output rounded through float16 | **fail** (flip rate 3.1e-4) | pass (max diff 2.9e-3, 0 confident flips) |
+| Output layer weights × 1.01 | **fail** | **fail** (flip rate) |
+
+The fp16 thresholds and the int8 tier are starting values: calibrate them on
+a T4 by running the gate over several healthy checkpoints and setting each
+threshold with headroom above the worst observed value.
+
 ## 3. TensorRT engine build
 
 `build_engine` (TensorRT 10 API, pinned `tensorrt-cu{12,13}==10.16.1.11` to match PyTorch's CUDA major):
@@ -60,9 +114,14 @@ smoke-test model the max absolute difference was ~1e-5.
 5. Serialised to `checkpoints/swinunetr_spleen_fp16.engine`. Build time and
    size go to `benchmark.json → tensorrt_engine`.
 
-The engine is built on the first benchmark run and reused afterwards
-(`--rebuild-engine` forces a rebuild). Engines are specific to the GPU
-architecture and TensorRT version, so they are git-ignored.
+The engine is built on first use and reused afterwards. `build_engine`
+writes a build record next to it (`<engine>.json`: ONNX SHA-256, TensorRT
+version, GPU name, precision); `ensure_engine` reuses the engine only if that
+record matches the current ONNX file, TensorRT and GPU, and otherwise
+rebuilds and records why (`rebuilt`, `rebuild_reason`). Both the benchmark
+and the parity gate go through `ensure_engine`, so neither can test an engine
+built from an older export. `--rebuild-engine` forces a rebuild. Engines are
+specific to the GPU architecture and TensorRT version, so they are git-ignored.
 
 **Not done:** INT8 (would need calibration data and an accuracy study),
 explicit FP32 pinning of LayerNorm/softmax, dynamic-shape profiles, CUDA
@@ -124,6 +183,6 @@ are, in order: FP32 pinning of normalisation and softmax layers with
 |---|---|
 | `ModuleNotFoundError: tensorrt` | `pip install tensorrt-cu<12 or 13>==10.16.1.11`, matching `torch.version.cuda` (the notebook does this) |
 | Parser: unsupported op | Opset < 17 or stale `onnx`. Re-export |
-| `Could not load ...engine` | Built on another GPU or TensorRT version. Use `--rebuild-engine` |
+| `Could not load ...engine` | Built on another GPU or TensorRT version. Normally caught by the build record; if the record is wrong, use `--rebuild-engine` |
 | LayerNorm-in-FP16 overflow warning | Check Dice. If it is degraded, pin those layers to FP32 |
 | Build OOM / killed | Lower `workspace_gb` |

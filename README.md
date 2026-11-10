@@ -172,6 +172,7 @@ the same toolchain used on Jetson-class embedded GPUs.
 | Inference | Sliding window 96³, overlap 0.5, Gaussian blending ($\sigma = 0.125 \cdot 96$), batch 4, argmax, no post-processing | [inference-and-evaluation.md](docs/reference/inference-and-evaluation.md) |
 | Metric | Foreground Dice per volume, mean over 8 validation cases, in resampled space | [inference-and-evaluation.md §3](docs/reference/inference-and-evaluation.md#3-dice-as-computed-here) |
 | Export | ONNX opset 18, static $(4,1,96,96,96)$, verified against PyTorch with ONNX Runtime (`allclose`, atol = rtol = 1e-3) | [deployment.md §2](docs/reference/deployment.md#2-onnx-export) |
+| Parity gate | Every backend vs PyTorch FP32 (TF32 off), one tolerance tier per precision (fp32 strict elementwise; fp16/bf16/int8 judged on class flips, confident flips and Dice drop); fixed-seed golden batches + optional whole volumes; non-zero exit on failure | [deployment.md §2.1](docs/reference/deployment.md#21-parity-gate) |
 | Engine | TensorRT 10, FP16 builder flag, per-layer precision by the builder; zero-copy integration on PyTorch's CUDA stream | [deployment.md §3–4](docs/reference/deployment.md#3-tensorrt-engine-build) |
 | Benchmark | Synchronised wall-clock latency of whole-volume sliding-window inference (GPU-resident input), 2 warm-up + 8 vols × 3 repeats; mean / p50 / p95; Dice per backend | [benchmarking.md](docs/reference/benchmarking.md) |
 
@@ -249,6 +250,7 @@ pip install -r requirements.txt
 pytest -q
 python -m src.train --smoke-test --synthetic      # drop --synthetic to use 2 real volumes (1.5 GB download)
 python -m src.export_onnx --smoke-test
+python -m src.parity --smoke-test --synthetic --volumes 1   # TensorRT recorded as "skipped: needs CUDA"
 python -m src.benchmark --smoke-test --synthetic  # AMP / TensorRT recorded as "skipped: needs CUDA"
 ```
 
@@ -260,7 +262,7 @@ CUDA Linux host:
 
 ```bash
 pip install -r requirements-colab.txt    # plus a CUDA build of torch
-python -m src.data --download && python -m src.train && python -m src.export_onnx && python -m src.benchmark
+python -m src.data --download && python -m src.train && python -m src.export_onnx && python -m src.parity --volumes 8 && python -m src.benchmark
 ```
 
 All hyperparameters live in [`configs/default.yaml`](configs/default.yaml),

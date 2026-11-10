@@ -1,4 +1,4 @@
-# 11. Benchmarking honestly
+# 12. Benchmarking honestly
 
 > **Summary.** A latency number is only meaningful if you know exactly what
 > it includes. GPU timing has specific traps:
@@ -12,7 +12,7 @@
 
 ---
 
-## 11.1 Define the measurement first
+## 12.1 Define the measurement first
 
 **One latency sample = sliding-window inference over one whole,
 already-preprocessed validation scan that is already on the GPU.**
@@ -27,7 +27,7 @@ So these are **model-inference latencies**, not "time from scan file to
 answer". A real system adds I/O and preprocessing. Anyone quoting the numbers
 should say "model latency on a T4".
 
-## 11.2 Trap 1: asynchronous execution
+## 12.2 Trap 1: asynchronous execution
 
 Chapter 10 explained that CUDA calls return immediately. A naive timer
 
@@ -47,7 +47,7 @@ torch.cuda.synchronize(); t1 = time.perf_counter()
 That's exactly what `run_backend` does (via `_sync`, which also handles
 Apple's MPS backend).
 
-## 11.3 Trap 2: start-up costs
+## 12.3 Trap 2: start-up costs
 
 The first GPU calls pay one-off costs: creating the CUDA context, cuDNN
 choosing algorithms, the memory allocator growing its pool, TensorRT
@@ -58,7 +58,7 @@ untimed** (warm-up).
 Also, before the TensorRT run the PyTorch model is deleted and the GPU cache
 emptied, so the two don't compete for memory.
 
-## 11.4 Trap 3: inputs of different sizes
+## 12.4 Trap 3: inputs of different sizes
 
 Latency is roughly proportional to the number of windows, which depends on
 scan size (chapter 9). So across the 8 validation scans the spread of
@@ -68,7 +68,7 @@ scans 3 times (24 samples) and keeps every raw sample in
 `benchmark.json → latency_ms_all`, so scan $i$ appears at positions $i$,
 $i + 8$ and $i + 16$.
 
-## 11.5 Reading the statistics
+## 12.5 Reading the statistics
 
 | Statistic | Meaning | Caveat here |
 |---|---|---|
@@ -78,7 +78,7 @@ $i + 8$ and $i + 16$.
 | Std | Spread | Mostly the scan-size mix |
 | Speed-up | FP32 mean ÷ backend mean | Same scans for every backend, so the ratio is fair |
 
-## 11.6 Amdahl's law: why the speed-up is capped
+## 12.6 Amdahl's law: why the speed-up is capped
 
 Only part of the measured time is the network. MONAI's window bookkeeping
 (cutting, weighting, accumulating, dividing) runs the same way for every
@@ -95,7 +95,7 @@ it 5× faster, the overall speed-up is $1 / (0.05 + 0.19) \approx 4.2\times$,
 not 5×. The faster the network, the more the fixed overhead matters. Keep
 that in mind before calling a measured speed-up "disappointing".
 
-## 11.7 Accuracy is part of the benchmark
+## 12.7 Accuracy is part of the benchmark
 
 A faster model that's less accurate isn't a free win. Every backend is scored
 with the same Dice on the same scans with the same windows, so any Dice
@@ -107,7 +107,7 @@ difference comes from **numerical precision alone**. Interpreting it:
 - Remember from chapter 8 that two GPU runs of the *same* backend can differ
   by about 1e-3. Smaller differences than that aren't findings.
 
-## 11.8 The environment is part of the result
+## 12.8 The environment is part of the result
 
 Colab's T4s are shared, virtualised machines, and the software versions
 change over time. Every result file records Python, PyTorch, MONAI, CUDA,
@@ -115,7 +115,7 @@ cuDNN, TensorRT and the GPU name (`environment` in `benchmark.json`). Without
 that, a benchmark number can't be interpreted or reproduced. If you run twice
 and get different numbers, report both rather than picking the better one.
 
-## 11.9 A checklist for any benchmark you read
+## 12.9 A checklist for any benchmark you read
 
 1. What exactly is timed? (Start and end points, what's excluded.)
 2. Was the GPU synchronised? Was there a warm-up?
@@ -142,4 +142,4 @@ each of these explicitly.
 3. With $f = 0.9$ and a 10× faster network, what's the overall speed-up?
 4. TensorRT Dice is 0.0004 lower than FP32. Is that a finding?
 
-Next: [12. Software engineering of this repo →](12-software-engineering-of-this-repo.md)
+Next: [13. Software engineering of this repo →](13-software-engineering-of-this-repo.md)

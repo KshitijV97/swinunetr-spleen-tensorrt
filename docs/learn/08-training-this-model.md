@@ -270,7 +270,7 @@ The seed fixes the data split, the random crops and the initial weights. GPUs
 still use a few non-deterministic kernels (the order of floating-point
 additions in parallel reductions varies), so two GPU runs can differ in the
 third decimal of Dice. Keep that in mind when you compare numbers that differ
-by about that much (chapter 11).
+by about that much (chapter 12).
 
 ---
 

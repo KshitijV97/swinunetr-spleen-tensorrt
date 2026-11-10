@@ -45,9 +45,10 @@ its summary box and move on.
 | 8 | [Training this model](08-training-this-model.md) | Dice loss, AdamW, learning-rate schedules, floating-point formats and mixed precision, memory budgeting, what one epoch does | 50 min |
 | 9 | [Inference and evaluation](09-inference-and-evaluation.md) | Sliding windows, blending, Dice, why 8 validation scans is a small number, what "good" means clinically | 30 min |
 | 10 | [GPUs and deployment](10-gpus-and-deployment.md) | GPU architecture, Tensor Cores, the roofline model, async execution, ONNX as an IR, TensorRT as a compiler | 50 min |
-| 11 | [Benchmarking honestly](11-benchmarking-honestly.md) | Measuring asynchronous hardware, warm-up, percentiles, Amdahl's law, how to read the results table | 25 min |
-| 12 | [Software engineering of this repo](12-software-engineering-of-this-repo.md) | Config layering, provenance, determinism, guarded imports, test strategy, CI, how to extend | 25 min |
-| 13 | [Where to go next](13-where-to-go-next.md) | Books, courses, papers and exercises, in priority order | 10 min |
+| 11 | [Is the fast model still the same model?](11-the-parity-gate.md) | The automated parity gate: why outputs can't match exactly, margins and confident flips, tolerance tiers, golden inputs vs whole scans, stale-engine protection, how to explain it in an interview | 35 min |
+| 12 | [Benchmarking honestly](12-benchmarking-honestly.md) | Measuring asynchronous hardware, warm-up, percentiles, Amdahl's law, how to read the results table | 25 min |
+| 13 | [Software engineering of this repo](13-software-engineering-of-this-repo.md) | Config layering, provenance, determinism, guarded imports, test strategy, CI, how to extend | 25 min |
+| 14 | [Where to go next](14-where-to-go-next.md) | Books, courses, papers and exercises, in priority order | 10 min |
 | — | [Glossary](glossary.md) | Every term, one line each | reference |
 
 ## A translation table for EE and software people
@@ -71,6 +72,7 @@ Much of deep learning reuses ideas you already know under different names.
 | ONNX | A compiler intermediate representation (like LLVM IR) | 10 |
 | TensorRT engine | A binary compiled with `-march=native` for one specific GPU | 10 |
 | Sliding-window inference | Overlap-add block processing | 9 |
+| Parity gate | A regression test with tolerances, run in CI; a build cache keyed on content hashes | 11 |
 | Data augmentation | Generating extra test vectors by symmetry | 3, 8 |
 | Overfitting | Fitting noise: a 40th-order polynomial through 41 points | 3 |
 

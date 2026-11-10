@@ -10,7 +10,7 @@ explains the term properly.
 | **AdamW** | Adam optimiser (momentum + per-weight step normalisation) with weight decay applied directly to the weights (8) |
 | **Affine (matrix)** | 4×4 matrix in a NIfTI header mapping voxel indices to millimetres, including orientation (1) |
 | **AMP (automatic mixed precision)** | FP16 where safe, FP32 where needed, plus loss scaling. In PyTorch: `torch.autocast` + `GradScaler` (8) |
-| **Amdahl's law** | The overall speed-up is limited by the part of the work you didn't speed up (11) |
+| **Amdahl's law** | The overall speed-up is limited by the part of the work you didn't speed up (12) |
 | **Argmax** | Pick the class with the highest score per voxel, turning logits into a label map (4) |
 | **Arithmetic intensity** | FLOPs per byte of memory traffic. Decides whether an op is compute- or memory-bound (10) |
 | **Attention (self-attention)** | Each token takes a similarity-weighted average of other tokens' values: a soft dictionary lookup (6) |
@@ -22,9 +22,11 @@ explains the term properly.
 | **BF16** | 16-bit float with FP32's exponent range and a 7-bit mantissa. Not supported by the T4 (8) |
 | **CacheDataset** | MONAI dataset that memoises deterministic preprocessing in RAM (8) |
 | **Checkpoint** | A saved file of model weights (+ config). Not to be confused with gradient checkpointing (8) |
+| **Confident flip** | A voxel whose predicted class changed even though the reference model's top two scores were far apart. Rounding can't cause it, so the parity gate allows none (11) |
 | **Constant folding** | Pre-computing parts of a graph that don't depend on the input (10) |
 | **Contrast phase** | When the scan is taken after iodine injection. Arterial (~30 s) or portal-venous (~70 s, this dataset) (1) |
 | **Convolution (layer)** | A learned multi-channel FIR filter bank, slid over the image (2, 5) |
+| **Cosine similarity** | Angle between two outputs treated as long vectors. 1.0 = same direction. Blind to uniform scaling (11) |
 | **Cross-entropy** | Classification loss $-\log p_\text{true}$. Gradient w.r.t. logits is $p - y$ (4) |
 | **CT (computed tomography)** | 3D X-ray imaging reconstructed from many projections. Voxel values in HU (1) |
 | **CUDA** | NVIDIA's GPU programming platform (10) |
@@ -35,9 +37,11 @@ explains the term properly.
 | **DICOM** | Hospital image format: one file per slice, rich metadata (1) |
 | **Engine (TensorRT)** | A compiled, GPU- and version-specific network binary (10) |
 | **Epoch** | One pass over all training scans. Here, 33 steps (3) |
+| **Flip** | A voxel whose predicted class differs between the original and the converted model (11) |
 | **FP32 / FP16** | 32-bit and 16-bit IEEE floats. FP16: max 65,504, ~3 significant digits (8) |
 | **Fusion (operator / layer)** | Combining several ops into one GPU kernel to avoid memory round-trips (10) |
 | **GELU** | Smooth ReLU-like activation used in transformer MLPs (4) |
+| **Golden inputs** | Fixed-seed random inputs used as repeatable test vectors for the parity gate (11) |
 | **Gradient** | Vector of partial derivatives of the loss w.r.t. every parameter (3) |
 | **Gradient checkpointing** | Recompute activations during backprop instead of storing them: compute for memory (8) |
 | **GradScaler** | Dynamically scales the loss so small FP16 gradients don't underflow (8) |
@@ -51,6 +55,7 @@ explains the term properly.
 | **LMS filter** | Least-mean-squares adaptive filter: SGD on squared error (3) |
 | **Logits** | Raw network scores before softmax (4) |
 | **Loss** | Single number measuring how wrong the predictions are. Training minimises it (3) |
+| **Margin (logit margin)** | Gap between a voxel's top two logits: how sure the model is. A voxel can only flip if the numeric error exceeds it (11) |
 | **MONAI** | PyTorch framework for medical imaging AI (monai.io) |
 | **MPS** | PyTorch's Apple Silicon GPU backend |
 | **MSD** | Medical Segmentation Decathlon. Task09 is our spleen dataset (1) |
@@ -61,7 +66,8 @@ explains the term properly.
 | **ONNX Runtime** | Independent ONNX inference engine, used here to verify the export (10) |
 | **Opset** | Version of the ONNX operator set (10) |
 | **Overfitting** | Fitting training-set noise at the expense of generalisation (3) |
-| **p95** | 95th percentile: 95 % of samples are at or below it (11) |
+| **p95** | 95th percentile: 95 % of samples are at or below it (12) |
+| **Parity gate** | Automatic pass/fail test that a converted model (ONNX, TensorRT) still matches the PyTorch original, within tolerances set per precision (11) |
 | **Partial volume effect** | Boundary voxels average several tissues, blurring edges (2) |
 | **Patch embedding** | Cut input into non-overlapping patches and project each to a token (a strided conv) (6, 7) |
 | **Patch merging** | Swin downsampling: concatenate 2×2×2 tokens, project to 2× channels (7) |
@@ -76,6 +82,7 @@ explains the term properly.
 | **Roofline model** | Attainable FLOP/s = min(peak compute, bandwidth × intensity) (10) |
 | **Segmentation** | Assigning a class to every voxel (1) |
 | **SGD** | Stochastic gradient descent: gradient steps estimated from mini-batches (3) |
+| **SHA-256** | A fingerprint of a file's bytes. Same hash = same file. Used to record exactly which checkpoint, ONNX file or engine was tested (11) |
 | **Shifted windows (SW-MSA)** | Swin blocks that offset windows by half a window so information crosses borders (7) |
 | **Sliding-window inference** | Predicting a large volume with overlapping fixed-size windows, blended (9) |
 | **Softmax** | Turns logits into probabilities: $e^{z_k}/\sum_j e^{z_j}$ (4) |
@@ -84,19 +91,21 @@ explains the term properly.
 | **Stream (CUDA)** | An ordered GPU work queue. Calls return before work finishes (10) |
 | **Swin Transformer** | Transformer with windowed, shifted attention and a multi-resolution hierarchy (7) |
 | **SwinUNETR** | Swin encoder + U-Net CNN decoder for 3D medical segmentation (7) |
-| **Synchronize** | Wait for all queued GPU work. Required for correct timing (11) |
+| **Synchronize** | Wait for all queued GPU work. Required for correct timing (12) |
 | **Tactic (TensorRT)** | One candidate kernel for a layer. The builder times tactics and keeps the fastest (10) |
 | **Tensor** | n-dimensional array (4) |
 | **Tensor Cores** | GPU units for fast small matrix multiply-accumulate in FP16 (and other formats) (10) |
 | **TensorRT** | NVIDIA's inference optimiser (compiler) and runtime (10) |
-| **TF32** | 19-bit internal matmul format on Ampere and newer GPUs. Not on the T4 (8) |
+| **TF32** | 19-bit internal matmul format on Ampere and newer GPUs. Not on the T4. Turned off for the parity reference (8, 11) |
+| **Tier (tolerance tier)** | One set of parity thresholds per precision (fp32, fp16, bf16, int8) (11) |
 | **Token** | One vector in a transformer's input set. Here, one embedded 2×2×2 patch (6) |
+| **Tolerance (atol / rtol)** | Allowed gap: absolute + relative × the reference value, as in `np.allclose` (11) |
 | **Tracing (ONNX export)** | Recording the ops executed for one example input. Python control flow is frozen (10) |
 | **Transposed convolution** | Learned upsampling: zero-stuff then filter (5) |
 | **U-Net** | Encoder–decoder with skip connections across matching resolutions (5) |
 | **Validation set** | Held-out data used to choose checkpoints/hyperparameters. Here, 8 scans (3) |
 | **Voxel** | 3D pixel: one sample of the volume (2) |
-| **Warm-up (benchmarking)** | Untimed runs that absorb one-off start-up costs (11) |
+| **Warm-up (benchmarking)** | Untimed runs that absorb one-off start-up costs (12) |
 | **Weight decay** | Regulariser pulling weights toward zero (8) |
 | **Window (attention)** | A 7×7×7 block of tokens within which attention is computed (7) |
 | **Windowing (intensity)** | Clipping HU to a range and rescaling it, like setting an ADC's full scale (1, 2) |

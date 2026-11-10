@@ -42,7 +42,45 @@ from src.utils import load_config, resolve_path, save_json
 
 @torch.no_grad()
 def export(model: torch.nn.Module, onnx_path: Path, input_shape, opset: int) -> Path:
-    """Write ``model`` to ``onnx_path`` with one fixed input shape."""
+    """Write ``model`` to ``onnx_path`` with one fixed input shape.
+
+    The exporter runs the model once on a random dummy input and records the
+    operations it executes, so only the shape and dtype of the input matter,
+    not its values. The resulting graph is specialised to exactly
+    ``input_shape``: batch size and volume size cannot change without
+    re-exporting.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The loaded SwinUNETR network, already in eval mode. The dummy input is
+        created on the same device as its weights.
+    onnx_path : pathlib.Path
+        Destination ``.onnx`` file. Missing parent directories are created.
+    input_shape : sequence of int
+        Full input shape ``(batch, channels, D, H, W)``, e.g.
+        ``(1, 1, 96, 96, 96)``.
+    opset : int
+        ONNX operator-set version. It limits which ops the exporter may emit,
+        so it must be supported by the TensorRT version you target.
+
+    Returns
+    -------
+    pathlib.Path
+        ``onnx_path``, returned so calls can be chained into the TensorRT
+        build step.
+
+    Notes
+    -----
+    The graph tensors are named ``"image"`` (input) and ``"logits"`` (output).
+    These names are used later when building the TensorRT engine and running
+    inference.
+
+    Gradients are disabled by ``@torch.no_grad()``: export only traces the
+    forward pass, so autograd bookkeeping would waste memory.
+
+    It's like taking a photo of a machine to document it. You don't need to also record a video of every internal step in case you want to reverse it later.
+    """
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
     dummy = torch.rand(*input_shape, device=device)
@@ -56,6 +94,8 @@ def export(model: torch.nn.Module, onnx_path: Path, input_shape, opset: int) -> 
         # The TorchScript-based exporter handles SwinUNETR's window reshapes
         # reliably; the newer torch.export ("dynamo") path is not needed here.
         dynamo=False,
+        # Precompute subgraphs that depend only on constants (e.g. shape
+        # arithmetic): a smaller graph that TensorRT parses more easily.
         do_constant_folding=True,
         # No dynamic_axes on purpose: every dimension is fixed (see module docstring).
     )
@@ -68,13 +108,20 @@ def verify(model: torch.nn.Module, onnx_path: Path, input_shape, atol: float, rt
     import onnx
     import onnxruntime as ort
 
+    # Check 1 - is the file well-formed?
+    # Analogy: confirming the blueprint is a valid document before comparing it.
     onnx.checker.check_model(str(onnx_path))  # structural validity of the file
 
+    # Check 2 - make one reproducible test input.
+    # Analogy: a fixed test sample, so both machines are judged on the same item.
     torch.manual_seed(seed)
     x = torch.rand(*input_shape)  # inputs are in [0, 1] after intensity scaling
     device = next(model.parameters()).device
     # On NVIDIA GPUs cuDNN may use TF32 (10-bit mantissa) for "fp32" convolutions,
     # which alone can exceed the tolerance. Turn it off for a true fp32 reference.
+    # Check 3 - get the PyTorch "reference answer".
+    # Analogy: weighing the original with a precise scale (TF32 off), and always
+    # putting the setting back afterwards, even if something goes wrong.
     tf32 = torch.backends.cudnn.allow_tf32
     torch.backends.cudnn.allow_tf32 = False
     try:
@@ -82,9 +129,15 @@ def verify(model: torch.nn.Module, onnx_path: Path, input_shape, atol: float, rt
             ref = model(x.to(device)).float().cpu().numpy()
     finally:
         torch.backends.cudnn.allow_tf32 = tf32
+
+    # Check 4 - get the ONNX Runtime answer from the same input.
+    # Analogy: handing the same sample to the replica built from the blueprint.
     session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
     out = session.run(["logits"], {"image": x.numpy()})[0]
 
+    # Check 5 - compare the two answers voxel by voxel.
+    # Analogy: laying the original and the replica side by side and measuring the
+    # largest gap, the average gap, and whether both pick the same label.
     diff = np.abs(ref - out)
     within = diff <= atol + rtol * np.abs(ref)
     report = {
@@ -106,8 +159,14 @@ def main(argv=None) -> None:
     p.add_argument("--smoke-test", action="store_true")
     p.add_argument("--checkpoint", help="default: <train.checkpoint_dir>/best.pt")
     p.add_argument("--output", help="default: export.onnx_path from the config")
+    # Step 1 - read the command line.
+    # Analogy: a waiter taking your order. Every flag is optional; anything you
+    # leave out falls back to the "house special" from the config file.
     args = p.parse_args(argv)
 
+    # Step 2 - load the config and work out the input/output file locations.
+    # Analogy: reading the recipe card and finding the pantry shelf (checkpoint)
+    # and the serving plate (ONNX path) before cooking starts.
     cfg = load_config(args.config, smoke_test=args.smoke_test)
     ckpt_path = Path(args.checkpoint) if args.checkpoint else resolve_path(cfg["train"]["checkpoint_dir"]) / "best.pt"
     onnx_path = Path(args.output) if args.output else resolve_path(cfg["export"]["onnx_path"])
@@ -115,19 +174,38 @@ def main(argv=None) -> None:
     # Export in fp32: the ONNX file stores fp32 weights and TensorRT decides
     # later which layers run in fp16. Use the GPU when there is one - tracing
     # the full-size model at batch 4 on CPU needs a lot of RAM on Colab.
+    # Step 3 - pick the hardware and load the trained model.
+    # Analogy: choosing a big workbench (GPU) over a small desk (CPU), then
+    # taking the finished sculpture (trained weights) off the shelf onto it.
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, ckpt = load_checkpoint(ckpt_path, device=device)
+
+    # Step 4 - decide the single input shape the exported graph will accept.
+    # Analogy: measuring the exact box the product ships in. The batch size comes
+    # from inference settings; channels and ROI come from what training used.
     train_cfg = ckpt["config"]  # the shapes the model was actually trained with
     input_shape = (cfg["inference"]["sw_batch_size"], train_cfg["model"]["in_channels"], *train_cfg["data"]["roi_size"])
 
+    # Step 5 - export to ONNX.
+    # Analogy: photographing the machine at work and writing a framework-neutral
+    # blueprint that TensorRT can read, without needing PyTorch.
     print(f"Exporting {ckpt_path} -> {onnx_path} with input shape {input_shape}")
     export(model, onnx_path, input_shape, cfg["export"]["opset"])
+
+    # Step 6 - verify the blueprint behaves like the original.
+    # Analogy: building from the blueprint and checking it against the original
+    # on the same test input. Tiny differences are fine (float rounding order).
     report = verify(model, onnx_path, input_shape, cfg["export"]["atol"], cfg["export"]["rtol"],
                     seed=cfg["seed"])
+    # Step 7 - record the results.
+    # Analogy: stapling the inspection result and the product label (paths, size,
+    # opset) together and filing it, so the run can be audited later.
     report.update(checkpoint=str(ckpt_path), onnx_path=str(onnx_path),
                   onnx_size_mb=onnx_path.stat().st_size / 2**20, opset=cfg["export"]["opset"])
     save_json(report, resolve_path(cfg["results_dir"]) / "onnx_export.json")
 
+    # Step 8 - show the summary and fail loudly if the check did not pass.
+    # Analogy: the quality inspector either stamps "approved" or stops the line.
     print(f"max |PyTorch - ONNX Runtime| = {report['max_abs_diff']:.2e}, "
           f"{report['fraction_within_tolerance'] * 100:.4f}% of logits within atol={report['atol']:.0e} "
           f"+ rtol={report['rtol']:.0e}, argmax agreement {report['argmax_agreement'] * 100:.4f}%")
