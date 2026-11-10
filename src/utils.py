@@ -175,9 +175,38 @@ def environment_info() -> dict[str, Any]:
 
 
 def save_json(obj: Any, path: str | Path) -> Path:
-    """Write ``obj`` as pretty-printed JSON, creating parent folders as needed."""
+    """Write ``obj`` as pretty-printed JSON, creating parent folders as needed.
+
+    Parameters
+    ----------
+    obj : Any
+        The data to save. It must be JSON-serializable (dicts, lists, strings,
+        numbers, booleans, ``None``). NumPy scalars and arrays are not, and
+        raise ``TypeError``; convert them first, e.g. with ``float(...)``.
+    path : str or pathlib.Path
+        Destination file. An existing file at this path is overwritten.
+
+    Returns
+    -------
+    pathlib.Path
+        ``path`` as a ``Path``, so callers can print or reuse it.
+
+    Notes
+    -----
+    The file is written directly, not via a temporary file, so a crash
+    mid-write can leave a partial file.
+
+    Analogy: a clerk who builds the missing filing-cabinet drawer, then writes
+    your notes on a fresh, neatly indented sheet, replacing any old sheet with
+    the same name.
+    """
+    # Accept str or Path; work with Path from here on.
     path = Path(path)
+    # Create the destination folder (and parents) if missing; no error if it
+    # already exists, so repeated runs are safe.
     path.parent.mkdir(parents=True, exist_ok=True)
+    # "w" opens for writing and overwrites any existing file.
     with open(path, "w") as f:
+        # indent=2 makes the output human-readable instead of one long line.
         json.dump(obj, f, indent=2)
     return path
