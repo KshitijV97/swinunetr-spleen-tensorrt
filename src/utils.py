@@ -141,6 +141,8 @@ def set_seed(seed: int) -> None:
 
     Note: GPU kernels are not all deterministic, so two CUDA runs can still
     differ slightly in the last decimal places.
+
+    Analogy: shuffling several decks of cards. Each deck (Python, NumPy, PyTorch, MONAI) has its own shuffler. To get the identical shuffle every time, you reset all of them to the same starting arrangement. A deck that was left out would shuffle differently.
     """
     # Imported here so importing utils does not require MONAI up front.
     from monai.utils import set_determinism

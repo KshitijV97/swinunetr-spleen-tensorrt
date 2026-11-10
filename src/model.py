@@ -32,6 +32,12 @@ INPUT_DIVISOR = 32
 
 def validate_roi(roi_size: Sequence[int]) -> None:
     """Raise a clear error if a crop size would break SwinUNETR's downsampling."""
+    # Analogy: like a 
+    #  checking every guest before the club opens. The
+    # network halves the volume 5 times, so each side must split evenly; a side
+    # like 100 would end up as a fractional voxel. Better to turn it away at the
+    # door (here) than fail with a cryptic shape error deep inside the model.
+    # `s % 32` is 0 (falsy) when OK, non-zero (truthy) when a side is bad.
     bad = [s for s in roi_size if s % INPUT_DIVISOR]
     if bad:
         raise ValueError(
