@@ -42,7 +42,43 @@ from src.utils import load_config, resolve_path, save_json
 
 @torch.no_grad()
 def export(model: torch.nn.Module, onnx_path: Path, input_shape, opset: int) -> Path:
-    """Write ``model`` to ``onnx_path`` with one fixed input shape."""
+    """Write ``model`` to ``onnx_path`` with one fixed input shape.
+
+    The exporter runs the model once on a random dummy input and records the
+    operations it executes, so only the shape and dtype of the input matter,
+    not its values. The resulting graph is specialised to exactly
+    ``input_shape``: batch size and volume size cannot change without
+    re-exporting.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The loaded SwinUNETR network, already in eval mode. The dummy input is
+        created on the same device as its weights.
+    onnx_path : pathlib.Path
+        Destination ``.onnx`` file. Missing parent directories are created.
+    input_shape : sequence of int
+        Full input shape ``(batch, channels, D, H, W)``, e.g.
+        ``(1, 1, 96, 96, 96)``.
+    opset : int
+        ONNX operator-set version. It limits which ops the exporter may emit,
+        so it must be supported by the TensorRT version you target.
+
+    Returns
+    -------
+    pathlib.Path
+        ``onnx_path``, returned so calls can be chained into the TensorRT
+        build step.
+
+    Notes
+    -----
+    The graph tensors are named ``"image"`` (input) and ``"logits"`` (output).
+    These names are used later when building the TensorRT engine and running
+    inference.
+
+    Gradients are disabled by ``@torch.no_grad()``: export only traces the
+    forward pass, so autograd bookkeeping would waste memory.
+    """
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
     dummy = torch.rand(*input_shape, device=device)
@@ -56,6 +92,8 @@ def export(model: torch.nn.Module, onnx_path: Path, input_shape, opset: int) -> 
         # The TorchScript-based exporter handles SwinUNETR's window reshapes
         # reliably; the newer torch.export ("dynamo") path is not needed here.
         dynamo=False,
+        # Precompute subgraphs that depend only on constants (e.g. shape
+        # arithmetic): a smaller graph that TensorRT parses more easily.
         do_constant_folding=True,
         # No dynamic_axes on purpose: every dimension is fixed (see module docstring).
     )
