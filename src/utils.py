@@ -85,7 +85,38 @@ def load_config(path: str | Path | None = None, smoke_test: bool = False) -> dic
 
 
 def resolve_path(path: str | Path) -> Path:
-    """Turn a config path (usually relative) into an absolute path under the repo."""
+    """Turn a config path (usually relative) into an absolute path under the repo.
+
+    Relative paths are anchored at the repository root (``REPO_ROOT``), not the
+    current working directory, so scripts behave the same wherever they are
+    launched from. A leading ``~`` is expanded to the home directory, and
+    absolute paths are returned unchanged.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        A path such as ``"checkpoints/best.pt"`` from the config or CLI.
+
+    Returns
+    -------
+    pathlib.Path
+        An absolute path. The file does not need to exist, and nothing is
+        created.
+
+    Examples
+    --------
+    With the repo at ``/home/me/swinunetr-spleen-tensorrt``::
+
+        >>> resolve_path("checkpoints/best.pt")
+        PosixPath('/home/me/swinunetr-spleen-tensorrt/checkpoints/best.pt')
+        >>> resolve_path("/data/spleen")      # absolute: unchanged
+        PosixPath('/data/spleen')
+        >>> resolve_path("~/spleen")          # ~ expanded to the home directory
+        PosixPath('/home/me/spleen')
+
+    Analogy: a street address with no city is assumed to be in *this* town
+    (the repo), while a full address (absolute) is used as written.
+    """
     path = Path(path).expanduser()
     return path if path.is_absolute() else REPO_ROOT / path
 
