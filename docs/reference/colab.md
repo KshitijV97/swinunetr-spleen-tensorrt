@@ -83,6 +83,79 @@ reinstall and re-download), skip section 6, and continue from section 7:
    git push
    ```
 
+## 4b. Publish `best.pt` as a GitHub Release (optional)
+
+Checkpoints are never committed (`.gitignore` excludes `*.pt`, and the repo
+does not use Git LFS). If you want others to download the trained weights
+without retraining, attach `best.pt` to a **GitHub Release**. A release is
+tied to a tag, and the tag is cut on `main`, so the weights are linked to the
+exact code that produced them.
+
+Before you start:
+
+- Merge the code that produced the checkpoint into `main`. The tag points at
+  `main` on GitHub, not at your Colab working copy.
+- Use one tag per training run (`v1`, `v1-run2`, ...). Don't overwrite the
+  weights of an old release.
+- Upload `best.pt` only. `last.pt` is for resuming training, is larger
+  (it holds the AdamW state), and nobody else needs it.
+
+### Option A: from your laptop (safest, recommended)
+
+No credentials ever enter Colab. Download `best.pt` from Drive
+(`MyDrive/swinunetr-spleen-tensorrt/checkpoints/best.pt`) into your local
+clone's `checkpoints/`, then:
+
+```bash
+gh release create v1 checkpoints/best.pt \
+  --repo KshitijV97/swinunetr-spleen-tensorrt \
+  --target main --title "v1" \
+  --notes "SwinUNETR spleen checkpoint (<epochs> epochs, val Dice <x>)"
+```
+
+To add the file to a release that already exists, use
+`gh release upload v1 checkpoints/best.pt --clobber` instead.
+
+### Option B: from the Colab notebook (last cell, after training)
+
+Convenient, but it puts a write-capable token inside Colab.
+
+1. Create a **fine-grained** GitHub token limited to this one repository, with
+   **Contents: Read and write** and a short expiry.
+2. Add it in Colab's 🔑 **Secrets** panel as `GH_TOKEN` and enable notebook
+   access. Never paste it into a cell.
+3. Run a cell like this:
+
+   ```python
+   import os
+   from google.colab import userdata
+
+   os.environ["GH_TOKEN"] = userdata.get("GH_TOKEN")
+   REPO, TAG = "KshitijV97/swinunetr-spleen-tensorrt", "v1"   # new TAG per run
+
+   !(type -p gh >/dev/null) || apt-get -qq install -y gh
+   !gh release view {TAG} -R {REPO} >/dev/null 2>&1 || \
+     gh release create {TAG} -R {REPO} --target main --title "{TAG}" \
+       --notes "SwinUNETR spleen checkpoint"
+   !gh release upload {TAG} -R {REPO} --clobber checkpoints/best.pt
+   ```
+
+   `--target main` only matters when the tag does not exist yet. `--clobber`
+   makes re-running the cell safe.
+
+Colab runs untrusted notebook code and shared sessions can expose secrets, so
+revoke the token once you have uploaded.
+
+### Downloading it later
+
+```bash
+gh release download v1 -R KshitijV97/swinunetr-spleen-tensorrt \
+  -p best.pt -D checkpoints/
+```
+
+Load it only if you trust the source: `.pt` files are pickles and can run
+code when loaded (see the security note on `load_checkpoint()`).
+
 ## 5. Troubleshooting
 
 | Problem | Fix |
