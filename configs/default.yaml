@@ -53,8 +53,52 @@ export:
   atol: 1.0e-3                   # verification passes if |PyTorch - ONNX| <= atol + rtol*|PyTorch|
   rtol: 1.0e-3
 
+parity:                          # src/parity.py: is each deployed backend still the same model?
+  golden_batches: 3              # fixed-seed random batches of the exported input shape
+  margin_threshold: 1.0          # a voxel is "confident" if its top-2 logit gap exceeds this
+  # One tolerance tier per precision. A check runs only if its threshold is set.
+  # fp32 is strict (a failure means the graph is wrong); reduced precision is
+  # judged on predicted classes and Dice, because every logit legitimately moves.
+  tiers:
+    fp32:                        # ONNX Runtime
+      atol: 1.0e-3
+      rtol: 1.0e-3
+      min_fraction_within: 1.0   # every logit within atol + rtol*|ref|
+      min_cosine: 0.99999
+      max_flip_rate: 1.0e-4
+      max_confident_flips: 0
+      min_foreground_dice: 0.999
+      max_dice_drop: 0.0005
+    fp16:                        # TensorRT FP16, PyTorch autocast on CUDA
+      atol: 5.0e-2
+      rtol: 1.0e-2
+      min_fraction_within: 0.999
+      min_cosine: 0.9999
+      max_flip_rate: 1.0e-3
+      max_confident_flips: 0
+      min_foreground_dice: 0.99
+      max_dice_drop: 0.005
+    bf16:                        # PyTorch autocast on CPU (8-bit mantissa: looser than fp16)
+      atol: 1.0e-1
+      rtol: 5.0e-2
+      min_fraction_within: 0.99
+      min_cosine: 0.999
+      max_flip_rate: 5.0e-3
+      max_confident_flips: 0
+      min_foreground_dice: 0.98
+      max_dice_drop: 0.01
+    int8:                        # reserved for the TensorRT INT8 engine
+      atol: 2.0e-1
+      rtol: 5.0e-2
+      min_fraction_within: 0.98
+      min_cosine: 0.999
+      max_flip_rate: 5.0e-3
+      max_confident_flips: 0
+      min_foreground_dice: 0.98
+      max_dice_drop: 0.01
+
 benchmark:
-  warmup_volumes: 2              # untimed passes before measuring (CUDA init, cuDNN autotune)
+  warmup_volumes: 2             # untimed passes before measuring (CUDA init, cuDNN autotune)
   repeats: 3                     # timed passes over the validation set (more samples for p95)
   engine_path: checkpoints/swinunetr_spleen_fp16.engine
   workspace_gb: 4                # TensorRT builder scratch memory

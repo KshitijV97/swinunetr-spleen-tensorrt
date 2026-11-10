@@ -1,6 +1,7 @@
 # Runs the unit tests and a synthetic end-to-end smoke test (train -> ONNX
-# export -> benchmark) on a CPU-only GitHub runner. No dataset download and no
-# GPU are needed, so this checks that the code works, not how good the model is.
+# export -> parity gate -> benchmark) on a CPU-only GitHub runner. No dataset
+# download and no GPU are needed, so this checks that the code works, not how
+# good the model is.
 name: tests
 
 on:
@@ -25,8 +26,9 @@ jobs:
           pip install -r requirements.txt
       - name: Unit tests
         run: pytest -q
-      - name: Synthetic smoke test (train -> export -> benchmark)
+      - name: Synthetic smoke test (train -> export -> parity -> benchmark)
         run: |
           python -m src.train --smoke-test --synthetic --device cpu
           python -m src.export_onnx --smoke-test
+          python -m src.parity --smoke-test --synthetic --volumes 1
           python -m src.benchmark --smoke-test --synthetic --device cpu
