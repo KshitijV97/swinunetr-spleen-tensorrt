@@ -45,13 +45,41 @@ def load_config(path: str | Path | None = None, smoke_test: bool = False) -> dic
 
     The ``smoke_test`` section is always removed from the returned dict so the
     rest of the code never has to think about it.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path, optional
+        YAML file to read. Defaults to ``configs/default.yaml`` in the repo.
+    smoke_test : bool, default False
+        If True, merge the file's ``smoke_test`` block over the normal values
+        (see :func:`deep_update`), giving a small, fast configuration for
+        quick end-to-end checks. If False, those overrides are discarded.
+
+    Returns
+    -------
+    dict
+        The configuration. It has no ``smoke_test`` section; instead it has a
+        ``smoke_test`` key holding the boolean flag, so callers can still tell
+        which mode they are in.
+
+    Notes
+    -----
+    Analogy: the config file is a recipe with a "mini batch" note at the
+    bottom. Normally you cook the full recipe and ignore the note; with
+    ``smoke_test=True`` you apply the note's substitutions first. Either way
+    the note is torn off, and a sticker records which version you cooked.
     """
+    # Use the caller's file, or fall back to the repo's default config.
     path = Path(path) if path else DEFAULT_CONFIG
     with open(path) as f:
         cfg = yaml.safe_load(f)
+    # Remove the smoke_test block (it may be missing or empty) so it never
+    # leaks into the returned config.
     smoke_overrides = cfg.pop("smoke_test", {}) or {}
     if smoke_test:
+        # Merge key by key: only the listed values change, the rest are kept.
         cfg = deep_update(cfg, smoke_overrides)
+    # Record which mode was used (this replaces the removed block).
     cfg["smoke_test"] = smoke_test
     return cfg
 
