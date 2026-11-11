@@ -1,0 +1,184 @@
+{
+  "epoch": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "train_loss": [
+    0.6703166835235826,
+    0.5146899683908983,
+    0.47694529005975433,
+    0.47801958069656836,
+    0.44742982360449707,
+    0.43056758244832355,
+    0.41138196081826184,
+    0.3864864363814845,
+    0.36933440737652057,
+    0.39224581104336365,
+    0.4001717734517473,
+    0.36119327490979974,
+    0.38084586958090466,
+    0.3740745236476262,
+    0.34299313683401456,
+    0.34405247234936914,
+    0.3145905441858552,
+    0.3369118435816331,
+    0.3086877605228713,
+    0.29427690329876816
+  ],
+  "val_epoch": [
+    5,
+    10,
+    15,
+    20
+  ],
+  "val_dice": [
+    0.34452587366104126,
+    0.42596304416656494,
+    0.4510580897331238,
+    0.5873961448669434
+  ],
+  "best_val_dice": 0.5873961448669434,
+  "best_epoch": 20,
+  "train_minutes": 42.550071040789284,
+  "n_train": 33,
+  "n_val": 8,
+  "n_parameters": 62186708,
+  "config": {
+    "seed": 42,
+    "results_dir": "results",
+    "data": {
+      "root_dir": "data",
+      "task": "Task09_Spleen",
+      "val_fraction": 0.2,
+      "max_volumes": null,
+      "cache_rate": 1.0,
+      "num_workers": 4,
+      "pixdim": [
+        1.5,
+        1.5,
+        2.0
+      ],
+      "hu_window": [
+        -57,
+        164
+      ],
+      "roi_size": [
+        96,
+        96,
+        96
+      ],
+      "num_samples": 4,
+      "pos_neg_ratio": [
+        1,
+        1
+      ]
+    },
+    "model": {
+      "feature_size": 48,
+      "in_channels": 1,
+      "out_channels": 2,
+      "use_checkpoint": true,
+      "dropout_path_rate": 0.0
+    },
+    "train": {
+      "epochs": 20,
+      "batch_size": 1,
+      "lr": 0.0001,
+      "weight_decay": 1e-05,
+      "amp": true,
+      "val_interval": 5,
+      "checkpoint_dir": "checkpoints"
+    },
+    "inference": {
+      "sw_batch_size": 4,
+      "overlap": 0.5
+    },
+    "export": {
+      "onnx_path": "checkpoints/swinunetr_spleen.onnx",
+      "opset": 18,
+      "atol": 0.001,
+      "rtol": 0.001
+    },
+    "parity": {
+      "golden_batches": 3,
+      "margin_threshold": 1.0,
+      "tiers": {
+        "fp32": {
+          "atol": 0.001,
+          "rtol": 0.001,
+          "min_fraction_within": 1.0,
+          "min_cosine": 0.99999,
+          "max_flip_rate": 0.0001,
+          "max_confident_flips": 0,
+          "min_foreground_dice": 0.999,
+          "max_dice_drop": 0.0005
+        },
+        "fp16": {
+          "atol": 0.05,
+          "rtol": 0.01,
+          "min_fraction_within": 0.999,
+          "min_cosine": 0.9999,
+          "max_flip_rate": 0.001,
+          "max_confident_flips": 0,
+          "min_foreground_dice": 0.99,
+          "max_dice_drop": 0.005
+        },
+        "bf16": {
+          "atol": 0.1,
+          "rtol": 0.05,
+          "min_fraction_within": 0.99,
+          "min_cosine": 0.999,
+          "max_flip_rate": 0.005,
+          "max_confident_flips": 0,
+          "min_foreground_dice": 0.98,
+          "max_dice_drop": 0.01
+        },
+        "int8": {
+          "atol": 0.2,
+          "rtol": 0.05,
+          "min_fraction_within": 0.98,
+          "min_cosine": 0.999,
+          "max_flip_rate": 0.005,
+          "max_confident_flips": 0,
+          "min_foreground_dice": 0.98,
+          "max_dice_drop": 0.01
+        }
+      }
+    },
+    "benchmark": {
+      "warmup_volumes": 2,
+      "repeats": 3,
+      "engine_path": "checkpoints/swinunetr_spleen_fp16.engine",
+      "workspace_gb": 4
+    },
+    "smoke_test": false
+  },
+  "environment": {
+    "python": "3.13.16",
+    "platform": "Linux-6.6.159+-x86_64-with-glibc2.39",
+    "torch": "2.14.1+cu130",
+    "cuda_available": true,
+    "monai": "1.6.1",
+    "gpu": "Tesla T4",
+    "cuda": "13.0",
+    "cudnn": 92800
+  }
+}
