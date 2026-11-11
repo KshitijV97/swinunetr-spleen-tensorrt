@@ -229,6 +229,7 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
     call with the same config; ``"auto"`` means ``<checkpoint_dir>/last.pt``.
     Training then continues at the epoch after the one saved.
     """
+    # Phase 1: setup - seed, folders, (optional) resume file, data, model, loss/optimizer.
     set_seed(cfg["seed"])
     validate_roi(cfg["data"]["roi_size"])
     ckpt_dir = resolve_path(cfg["train"]["checkpoint_dir"])
@@ -261,10 +262,13 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     autocast = (lambda: torch.autocast("cuda", dtype=torch.float16)) if use_amp else nullcontext
 
+    # Fresh-run defaults; overwritten below if resuming.
     history: dict[str, Any] = {"epoch": [], "train_loss": [], "val_epoch": [], "val_dice": []}
     best_dice, best_epoch = -1.0, -1
     start_epoch, prior_seconds, resumed_from = 1, 0.0, []
 
+    # Phase 2 (resume only): restore every piece of training state, not just the weights,
+    # so the continued run behaves as if it was never interrupted.
     if state is not None:
         model.load_state_dict(state["model_state"])
         optimizer.load_state_dict(state["optimizer_state"])
@@ -284,11 +288,12 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
     start = time.time() - prior_seconds  # elapsed time keeps counting across resumes
 
     for epoch in range(start_epoch, epochs + 1):
+        # 3a. One epoch = one pass over all training crops: forward, loss, backward, update.
         model.train()
         epoch_loss, steps = 0.0, 0
         for batch in train_loader:
             image, label = batch["image"].to(device), batch["label"].to(device)
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)  # clear last step's gradients
             with autocast():
                 loss = loss_fn(model(image), label)
             # GradScaler multiplies the loss so small fp16 gradients don't round
@@ -304,6 +309,8 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
         history["train_loss"].append(epoch_loss)
         msg = f"epoch {epoch:4d}/{epochs}  loss {epoch_loss:.4f}  lr {scheduler.get_last_lr()[0]:.2e}"
 
+        # 3b. Validate every val_interval epochs (and the last). Keep the best model by
+        # val Dice - this is the best.pt that export/parity/benchmark later consume.
         if epoch % cfg["train"]["val_interval"] == 0 or epoch == epochs:
             dice = validate(model, val_loader, cfg, device, autocast)
             history["val_epoch"].append(epoch)
@@ -317,6 +324,7 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
                 )
                 msg += "  (new best, saved)"
 
+        # 3c. Snapshot after EVERY epoch (not just on improvement) so a crash loses <=1 epoch.
         # Everything needed to continue from here, overwritten every epoch.
         # It also keeps "model_state" + "config", so load_checkpoint() can read it.
         atomic_save(
@@ -338,6 +346,7 @@ def train(cfg: dict[str, Any], device: torch.device, resume: str | Path | None =
         )
         print(msg, f"  [{time.time() - start:.0f}s]", flush=True)
 
+    # Phase 4: wrap up - add run metadata to the history and write it to results/.
     history.update(
         resumed_from_epochs=resumed_from,
         best_val_dice=best_dice,
