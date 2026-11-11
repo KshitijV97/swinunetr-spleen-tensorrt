@@ -73,10 +73,11 @@ essentially the same Dice score**. If it got faster but less accurate, the
 results will say so.
 
 > **Current status, plainly:** all the code is written, tested and checked
-> on a laptop. The full training and speed measurements need a powerful
-> NVIDIA graphics chip (free on Google Colab) and **have not been run yet**.
-> That is why the results tables below say *TBD*. No number in this
-> repository is guessed or made up.
+> on a laptop, and the speed measurements have been run on a Colab T4. The
+> speed results are solid. The **accuracy is not**: the model was trained for
+> only 20 of the planned 150 epochs, so its Dice (0.587) is far below what a
+> fully trained model should reach. See the Results section below. No number
+> in this repository is guessed or made up.
 
 ### What this project is *not*
 
@@ -134,10 +135,12 @@ path. The effort goes into a correct pipeline and a measurement protocol that
 says exactly what each number means.
 
 > **Status:** implementation, tests, CPU CI and the local smoke test are
-> complete. The full T4 training and benchmark have **not been run yet**.
-> Every result cell below reads *TBD* until they come from
-> [the Colab notebook](notebooks/colab_train_and_benchmark.ipynb). Nothing here
-> is estimated.
+> complete. The T4 benchmark has been run from
+> [the Colab notebook](notebooks/colab_train_and_benchmark.ipynb), but on a
+> **short 20-epoch training run** (see Results). The speed-up numbers are
+> measured; the Dice is from an under-trained model and is not
+> representative of what SwinUNETR can achieve on this task. Nothing here is
+> estimated.
 
 **Documentation comes in three tracks:**
 
@@ -183,9 +186,18 @@ MSD Spleen ─▶ MONAI preprocessing ─▶ SwinUNETR training ─▶ best.pt �
 
 ### Results
 
-> ⚠️ **TBD: run notebook.** Values come from
-> `notebooks/colab_train_and_benchmark.ipynb` on a Colab T4. The field-to-cell
-> mapping is in [docs/author-notes/reporting-results.md](docs/author-notes/reporting-results.md).
+> ⚠️ **Read this first: the model is under-trained.** These values come from
+> `notebooks/colab_train_and_benchmark.ipynb` on a Colab T4 with
+> `--epochs 20` instead of the configured 150. The mean validation Dice is
+> **0.587**, far below the roughly 0.9+ expected for a fully trained model on
+> this dataset. The **latency and speed-up figures are valid** (they depend on
+> the network's compute, not on how well it is trained), and Dice is the same
+> across all three backends, so precision changes did not cost accuracy. But
+> **do not read 0.587 as the accuracy this architecture can reach.** Why this
+> happened and how to fix it is under
+> [Why the Dice is low](#why-the-dice-is-low-and-how-to-fix-it).
+> The field-to-cell mapping is in
+> [docs/author-notes/reporting-results.md](docs/author-notes/reporting-results.md).
 
 #### Training
 
@@ -193,11 +205,15 @@ MSD Spleen ─▶ MONAI preprocessing ─▶ SwinUNETR training ─▶ best.pt �
 |---|---|
 | Train / validation volumes | 33 / 8 |
 | Model | SwinUNETR, $F = 48$, 62.2 M parameters |
-| Epochs trained | TBD: run notebook |
-| Training time (T4) | TBD: run notebook |
-| Best validation Dice (AMP, during training) | TBD: run notebook |
+| Epochs trained | **20** (config default is 150; shortened run) |
+| Training time (T4) | 42.6 min (gradient checkpointing on) |
+| Best validation Dice (AMP, during training) | 0.5874 at epoch 20 (the last epoch) |
 
-<!-- After the Colab run, uncomment: ![Training curve](results/training_curve.png) -->
+![Training curve](results/training_curve.png)
+
+Validation Dice at epochs 5 / 10 / 15 / 20 was 0.345 / 0.426 / 0.451 / 0.587.
+It was still rising when training stopped, and the best checkpoint is the
+final epoch, so the run ended before the model converged.
 
 #### Inference (NVIDIA T4, 8 validation volumes × 3 repeats)
 
@@ -207,24 +223,75 @@ I/O and post-processing are excluded.
 
 | Backend | Mean latency / volume (ms) | p95 (ms) | Speed-up vs FP32 | Mean Dice |
 |---|---:|---:|---:|---:|
-| PyTorch FP32 | TBD: run notebook | TBD: run notebook | 1.00× | TBD: run notebook |
-| PyTorch AMP (FP16 autocast) | TBD: run notebook | TBD: run notebook | TBD: run notebook | TBD: run notebook |
-| TensorRT FP16 | TBD: run notebook | TBD: run notebook | TBD: run notebook | TBD: run notebook |
+| PyTorch FP32 | 34476.1 | 59137.6 | 1.00× | 0.5873 |
+| PyTorch AMP (FP16 autocast) | 14587.1 | 24866.0 | 2.36× | 0.5874 |
+| TensorRT FP16 | 6182.1 | 10212.9 | 5.58× | 0.5873 |
 
 #### Export
 
 | | Value |
 |---|---|
-| ONNX vs PyTorch max abs. logit difference | TBD: run notebook |
-| ONNX vs PyTorch argmax agreement | TBD: run notebook |
-| TensorRT engine build time / size | TBD: run notebook |
-| Software (driver / CUDA / PyTorch / TensorRT) | TBD: run notebook |
+| ONNX vs PyTorch max abs. logit difference | 7.63e-05 |
+| ONNX vs PyTorch argmax agreement | 99.99997 % |
+| TensorRT engine build time / size | 513 s / 125.7 MB |
+| Software | Tesla T4, CUDA 13.0, cuDNN 9.28, PyTorch 2.14.1+cu130, TensorRT 10.16.1.11, MONAI 1.6.1, Python 3.13.16 |
+
+#### Reading these results
+
+- **Speed-up is real.** TensorRT FP16 is 5.58× faster than FP32 and 2.36×
+  faster than AMP on the same volumes. AMP's gain comes mostly from FP16 Tensor
+  Cores; TensorRT's extra gain over AMP comes from layer fusion, kernel
+  selection and less framework overhead.
+- **Precision did not change the answer.** Dice is 0.5873 / 0.5874 / 0.5873
+  across FP32 / AMP / TensorRT, and ONNX agrees with PyTorch on all but a
+  handful of voxels. This holds regardless of how well the model is trained.
+- **Accuracy is poor and uneven.** Per-volume Dice ranges from 0.29 to 0.87:
+  three volumes are above 0.7 and three are below 0.34, which is typical of a
+  model that has not finished learning.
+- **p95 is wide because scans differ in size**, not because of jitter
+  (larger scans need more sliding windows).
+
+### Why the Dice is low, and how to fix it
+
+**Cause.** `results/training_history.json` records `epochs: 20`, not the
+default 150. Training loss was still falling (0.67 to 0.29) and validation
+Dice was still climbing (0.345 to 0.587) at the final epoch. The model had not
+converged. Three things made this worse:
+
+- A SwinUNETR with 62 M parameters trained **from scratch** on only 33 volumes
+  needs many epochs; there are no pretrained weights to start from.
+- The cosine learning-rate schedule is set over the number of epochs, so in a
+  20-epoch run it decayed to zero by epoch 20 instead of staying high for
+  much longer.
+- Validation ran every 5 epochs, so only four Dice measurements exist.
+
+This is a training-budget problem, not a deployment bug: the export and
+benchmark code reproduced the same Dice on all three backends.
+
+**Remediation.**
+
+1. **Retrain with the full 150 epochs.** Resume cannot extend this run,
+   because `--resume` requires the epoch count to match and the schedule has
+   already reached zero. Start a fresh run
+   (`python -m src.train --epochs 150`).
+2. **Plan for the time.** 20 epochs took 42.6 min, so 150 epochs is roughly
+   5 to 6 hours on a T4. That is close to Colab's session limit.
+3. **Keep checkpoints off the VM.** Set `--checkpoint-dir` to a mounted
+   Google Drive folder so a disconnect doesn't lose `last.pt`, and use
+   `--resume` (same flags) if the session drops.
+4. **Then rerun stage 8** and update the table above. Latency should barely
+   change; Dice should rise substantially. If it still stays far below 0.9
+   after 150 epochs, check preprocessing and the train/validation split
+   before changing the model.
 
 ### Limitations
 
 - **Small, single-centre cohort.** 41 portal-venous CTs from one institution
   and one patient population (liver metastases under chemotherapy). No claim
   of external validity across scanners, phases or pathology.
+- **Under-trained model in the published numbers.** The reported Dice comes
+  from a 20-epoch run (configured: 150). It illustrates the speed and
+  precision comparison, not the accuracy this architecture can achieve.
 - **Validation, not test.** One fixed 33/8 split. The checkpoint is selected
   on the same 8 cases it is reported on (optimistic bias). $n = 8$ gives wide
   uncertainty, and per-case Dice is in `benchmark.json`.
