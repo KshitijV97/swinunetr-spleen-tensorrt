@@ -6,6 +6,7 @@
 > - results must be **traceable** to exact settings and versions;
 > - **randomness** must be controlled;
 > - **hardware differences** (Mac vs NVIDIA GPU) must be handled explicitly;
+> - long runs on rented GPUs must **survive interruption**;
 > - tests must run **without** the 1.5 GB dataset or a GPU.
 >
 > Here's how the repo does each, and how to extend it.
@@ -88,6 +89,19 @@ rather than overclaiming.
 The guarded import is the key trick: optional, platform-specific
 dependencies behave like plugins, so the core code runs everywhere.
 
+**Designing for interruption.** Colab is a machine that can vanish at any
+moment, so training treats interruption as normal, not exceptional:
+
+- Durable state goes to Drive (the notebook symlinks `checkpoints/` and
+  `results/` there), and each step's log is saved to a file.
+- `last.pt` is rewritten every epoch with **everything** needed to continue
+  (chapter 8.13), using an atomic write-then-rename so a crash mid-save can't
+  corrupt it.
+- `--resume` validates the file and the config **before** the slow dataset
+  caching, so a mistake fails in seconds rather than after minutes.
+- A config mismatch is an error, not a warning. A run stitched together from
+  two configs would produce numbers nobody could reproduce (§13.3).
+
 ## 13.6 Testing ML code without data or a GPU
 
 Testing ML code is awkward. "Is the model good?" can't be a unit test, and
@@ -105,6 +119,12 @@ ellipsoid "spleen" in an ellipsoid "body"):
 | Bad `roi_size` / `feature_size` are rejected | Confusing crashes deep inside MONAI |
 | Default model has ~62 M params | Accidental config changes |
 | TensorRT module imports without CUDA | Regressions in the guard |
+| An interrupted run resumed with `--resume` keeps its earlier losses and continues the LR schedule; a changed `--epochs` is refused | Resume silently restarting the schedule or optimiser, or mixing two configs in one run |
+
+The resume test simulates a disconnect by making the save function raise an
+exception right after epoch 2's `last.pt` is written. That's **fault
+injection**: rather than waiting for a real crash, the test forces one at a
+precise point and checks that recovery works.
 
 On top of unit tests, **CI** (GitHub Actions) runs the whole pipeline
 end-to-end on synthetic data on a CPU runner, train → export → benchmark,

@@ -54,17 +54,45 @@ source of truth.
 ### If your session is short
 
 Free Colab sessions can disconnect when idle and have a maximum lifetime.
-Two safeguards:
+Closing the browser tab or putting your laptop to sleep usually counts as
+idle, and a disconnect deletes the VM. Three safeguards:
 
 1. Keep `USE_DRIVE = True` in section 2. Checkpoints and results then live in
    `MyDrive/swinunetr-spleen-tensorrt/` and survive a disconnect.
-2. Lower `EPOCHS` in section 6. If you do, state the epoch count next to your
+2. Training saves `checkpoints/last.pt` (the full training state) after every
+   epoch, so a disconnect loses at most one epoch. See
+   [Resuming after a disconnect](#resuming-after-a-disconnect).
+3. Lower `EPOCHS` in section 6. If you do, state the epoch count next to your
    results in the README. A 60-epoch result is still a real result, as long
    as it is labelled.
 
 If a disconnect happens after training finished, re-run sections 1–5 (to
 reinstall and re-download), skip section 6, and continue from section 7:
 `checkpoints/best.pt` is still on your Drive.
+
+### Resuming after a disconnect
+
+Requires `USE_DRIVE = True` in the original session (otherwise `last.pt` was
+on the deleted VM).
+
+1. Reconnect, select the T4 runtime again, and run sections 1–5 (Drive,
+   install, tests, download). Section 3 relinks `checkpoints/` to your Drive.
+2. In section 6 leave `EPOCHS` and `EXTRA_FLAGS` exactly as they were and set
+   `RESUME = True`. Run the cell. The first line says which epoch it resumes
+   from. A changed `EPOCHS` is refused, because the learning-rate schedule is
+   built from it.
+3. Continue with section 7 as normal.
+
+`RESUME = True` is safe on a fresh run too: with no `last.pt` it starts
+from epoch 1. Note that `last.pt` files from before resume support
+hold weights only and cannot be resumed; their `best.pt` is still fine for
+sections 7 onward.
+
+**Drive storage.** At the default size `last.pt` is roughly 0.75 GB
+(weights plus AdamW state), rewritten after every epoch. If Google Drive
+keeps replaced files in Trash or as old revisions, that can use up your
+quota over a long run. After the first few epochs, check Drive's storage
+and Trash; empty the Trash if `last.pt` copies pile up there.
 
 ## 4. Get the results back into the repository
 
@@ -162,6 +190,8 @@ code when loaded (see the security note on `load_checkpoint()`).
 |---|---|
 | `nvidia-smi: command not found` | The runtime has no GPU. Change the runtime type to T4 |
 | `CUDA out of memory` during training | Training stops with a message. In section 6 set `EXTRA_FLAGS = '--use-checkpoint'` and re-run that cell. If it still does not fit, add `--feature-size 24` (and say so in the README) |
+| Disconnected during training | Re-run sections 1–5, then section 6 with `RESUME = True` and the same `EPOCHS` (see [Resuming after a disconnect](#resuming-after-a-disconnect)) |
+| `--resume: the config differs ...` | `EPOCHS` or `EXTRA_FLAGS` changed since the interrupted run. Restore the values listed in the message |
 | Session crashes with "used all available RAM" while loading data | Edit `data.cache_rate` to `0.5`, or add `--max-volumes 30` |
 | `pip` dependency-resolver warnings about Colab's preinstalled packages | Usually harmless. Check the `import torch, monai, tensorrt` cell prints versions |
 | `ModuleNotFoundError: tensorrt` | Re-run the install cell in section 3. It prints which `tensorrt-cu…` wheel it chose; that must match `torch.version.cuda` |

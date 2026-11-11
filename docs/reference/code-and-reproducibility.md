@@ -77,6 +77,9 @@ kernels. See [training.md §8](training.md#8-determinism).
 | `test_invalid_sizes_are_rejected` | `roi_size` % 32, `feature_size` % 12 |
 | `test_default_model_size` | 55–70 M parameters at $F = 48$ |
 | `test_tensorrt_module_imports_without_cuda` | Guard behaviour on CUDA-less hosts |
+| `test_resume_continues_from_the_saved_epoch` | Interrupted + `--resume` run keeps pre-interruption losses, full epoch list, continued LR schedule |
+| `test_resume_refuses_a_different_config` | A changed `train.epochs` is rejected with the differing key named |
+| `test_resume_without_checkpoint_explains_itself`, `test_paths_and_memory_settings_may_change_on_resume` | Missing `last.pt` message; exempt keys (paths, workers, cache, `use_checkpoint`) |
 
 CI (GitHub Actions, `ubuntu-latest`, CPU torch wheel) runs the tests and the
 synthetic train → export → benchmark chain on every push and PR. It
