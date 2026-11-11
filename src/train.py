@@ -58,7 +58,14 @@ from monai.losses import DiceCELoss
 from src.data import SYNTHETIC_TASK, build_dataloaders
 from src.evaluation import DiceScorer, predict_volume
 from src.model import build_model, count_parameters, validate_roi
-from src.utils import environment_info, get_device, load_config, resolve_path, save_json, set_seed
+from src.utils import (
+    environment_info,
+    get_device,
+    load_config,
+    resolve_path,
+    save_json,
+    set_seed,
+)
 
 
 def parse_args(argv=None) -> argparse.Namespace:
