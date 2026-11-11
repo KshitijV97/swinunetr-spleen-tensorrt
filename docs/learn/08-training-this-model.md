@@ -236,6 +236,8 @@ random crop and augmentation. It's ordinary memoisation of a pure function.
 4. Every 5 epochs: **validate**. Run sliding-window inference over the 8
    whole validation scans (chapter 9), compute the mean spleen Dice, and if
    it's the best so far, save `best.pt`.
+5. Save `last.pt`, a snapshot of the whole training run so far (§8.13), so
+   an interruption loses at most this epoch.
 
 Over 150 epochs that's ~4,950 optimisation steps and 30 validations. Each
 log line looks like:
@@ -272,6 +274,58 @@ additions in parallel reductions varies), so two GPU runs can differ in the
 third decimal of Dice. Keep that in mind when you compare numbers that differ
 by about that much (chapter 12).
 
+## 8.13 Surviving interruptions: checkpoints and resuming
+
+Training runs for hours on a rented GPU that can disappear: free Colab
+sessions disconnect when you close the laptop and wipe the machine. If the
+only thing on disk is `best.pt`, an interruption at epoch 120 of 150 means
+starting again from epoch 1.
+
+**Why the weights alone aren't enough.** It's tempting to reload `best.pt`
+and keep going. But the weights are only part of what training "knows":
+
+| State | What it is | What breaks if you drop it |
+|---|---|---|
+| Weights | The model itself | Everything |
+| AdamW moments $m, v$ and step count | Running averages of each weight's gradient and squared gradient (§8.4) | The optimiser forgets each weight's typical step size. The next updates are badly scaled, like restarting from a cold start |
+| Schedule position | Where we are on the cosine curve (§8.5) | The learning rate jumps from its small late value back to $10^{-4}$, shaking a nearly converged model |
+| `GradScaler` scale | The current loss multiplier for FP16 (§8.7) | It re-learns the scale from scratch, skipping steps on the way |
+| Random-number generators | The state of every "dice" used for shuffling | The data order no longer continues the same sequence |
+| History and best Dice | Loss/Dice so far, the best score | The curve has a hole, and a worse model could overwrite `best.pt` |
+
+An EE analogy: pausing a running IIR filter. To continue its output exactly,
+you have to save its internal **delay-line state**, not just its
+coefficients. The weights are the coefficients; the optimiser moments and
+schedule position are the delay line.
+
+**What this repo does.** At the end of every epoch, `train.py` writes all of
+the above to `checkpoints/last.pt`. On Colab with Drive mounted, that file
+lives on your Drive. After a disconnect you run the same command with
+`--resume` added:
+
+```bash
+python -m src.train --epochs 20             # interrupted after epoch 11
+python -m src.train --epochs 20 --resume    # continues at epoch 12
+```
+
+Two engineering details are worth copying in your own projects:
+
+- **Atomic writes.** The file is saved to `last.pt.tmp` and then renamed
+  over `last.pt`. A rename is all-or-nothing, so a disconnect *during* the
+  save leaves the previous good snapshot, never half a file.
+- **Refuse mismatched configs.** If you resume with a different `--epochs`,
+  the cosine curve would be stretched halfway through, and the result
+  wouldn't correspond to any single, describable training run. So the code
+  compares the saved config with the current one and stops with a list of
+  differences. Only settings that don't change the maths (file paths,
+  number of loader workers, gradient checkpointing) may differ.
+
+**Honest caveat.** A resumed run is equivalent to an uninterrupted one, but
+not bit-identical: MONAI's augmentations keep their own random generators,
+which restart on resume. The crops after the interruption are different
+random draws from the same distribution. That's the same order of
+difference as GPU non-determinism (§8.12) and doesn't bias the result.
+
 ---
 
 **In the code**
@@ -280,6 +334,9 @@ by about that much (chapter 12).
   `train:` and `model:` blocks.
 - Caching: [`src/data.py`](../../src/data.py) → `build_dataloaders`.
 - Seeding: [`src/utils.py`](../../src/utils.py) → `set_seed`.
+- Resuming: [`src/train.py`](../../src/train.py) → `load_resume_state`,
+  `atomic_save`, `config_differences`; tested in
+  [`tests/test_train_resume.py`](../../tests/test_train_resume.py).
 - The compact version: [training reference](../reference/training.md).
 
 **Check yourself**
@@ -289,5 +346,8 @@ by about that much (chapter 12).
 3. What does `GradScaler` do when it sees an `inf` gradient?
 4. Where does most of the training memory go, and what does
    `use_checkpoint` trade for it?
+5. You resume from epoch 100 of 150 with the right weights but a fresh
+   optimiser and scheduler. What happens to the learning rate on the next
+   step, and why is that harmful?
 
 Next: [9. Inference and evaluation →](09-inference-and-evaluation.md)

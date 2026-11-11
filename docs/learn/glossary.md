@@ -13,6 +13,7 @@ explains the term properly.
 | **Amdahl's law** | The overall speed-up is limited by the part of the work you didn't speed up (12) |
 | **Argmax** | Pick the class with the highest score per voxel, turning logits into a label map (4) |
 | **Arithmetic intensity** | FLOPs per byte of memory traffic. Decides whether an op is compute- or memory-bound (10) |
+| **Atomic write** | Save to a temporary file, then rename it over the target. A crash leaves the old file or the new one, never half of each. Used for `last.pt` (8, 13) |
 | **Attention (self-attention)** | Each token takes a similarity-weighted average of other tokens' values: a soft dictionary lookup (6) |
 | **Augmentation** | Random, label-preserving changes to training inputs (flips, rotations, intensity shifts) (2, 3) |
 | **Axial / coronal / sagittal** | The three standard viewing planes: top–bottom, front–back, left–right cuts (1) |
@@ -21,7 +22,7 @@ explains the term properly.
 | **Beer–Lambert law** | X-ray intensity decays exponentially with the integral of attenuation along the path (1) |
 | **BF16** | 16-bit float with FP32's exponent range and a 7-bit mantissa. Not supported by the T4 (8) |
 | **CacheDataset** | MONAI dataset that memoises deterministic preprocessing in RAM (8) |
-| **Checkpoint** | A saved file of model weights (+ config). Not to be confused with gradient checkpointing (8) |
+| **Checkpoint** | A saved file of model weights (+ config). `best.pt` holds the best-validating weights; `last.pt` holds the full training state for resuming. Not to be confused with gradient checkpointing (8) |
 | **Confident flip** | A voxel whose predicted class changed even though the reference model's top two scores were far apart. Rounding can't cause it, so the parity gate allows none (11) |
 | **Constant folding** | Pre-computing parts of a graph that don't depend on the input (10) |
 | **Contrast phase** | When the scan is taken after iodine injection. Arterial (~30 s) or portal-venous (~70 s, this dataset) (1) |
@@ -78,6 +79,7 @@ explains the term properly.
 | **Relative position bias** | Learned attention-score offset depending on token displacement (6, 7) |
 | **Residual connection** | $y = x + F(x)$: a bypass that keeps gradients flowing (4) |
 | **Resampling** | Interpolating a volume onto a new voxel grid (2) |
+| **Resume (`--resume`)** | Continue an interrupted training run from `last.pt`: weights, optimiser moments, schedule position, loss scale and RNG state all restored (8) |
 | **ROI size** | The 3D crop size for training and the sliding-window size: 96³ (2, 9) |
 | **Roofline model** | Attainable FLOP/s = min(peak compute, bandwidth × intensity) (10) |
 | **Segmentation** | Assigning a class to every voxel (1) |

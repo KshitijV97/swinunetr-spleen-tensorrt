@@ -257,7 +257,9 @@ python -m src.benchmark --smoke-test --synthetic  # AMP / TensorRT recorded as "
 **Full run (Colab T4).** Open the notebook with the badge above, select
 *Runtime → Change runtime type → T4 GPU*, then *Run all*. It installs pinned
 dependencies and TensorRT, tests, downloads, trains, exports, benchmarks and
-packages `results.zip`. See [colab.md](docs/reference/colab.md). On any
+packages `results.zip`. Training saves its full state after every epoch, so
+after a disconnect you can resume where it stopped (`RESUME = True` in the
+notebook, `--resume` on the CLI). See [colab.md](docs/reference/colab.md). On any
 CUDA Linux host:
 
 ```bash
@@ -275,7 +277,7 @@ checkpoint and result file.
 ```
 configs/default.yaml        hyperparameters (+ smoke-test overrides)
 src/                        data, model, evaluation, train, export_onnx, trt_utils, benchmark, utils
-tests/                      pytest on synthetic data (CPU, ~30 s)
+tests/                      pytest on synthetic data (CPU, ~2 min; the resume test trains a tiny model)
 notebooks/                  Colab T4 end-to-end run
 scripts/                    make_overview_figure.py (renders docs/images/ct_spleen_example.png)
 docs/overview-for-everyone.md  plain-English guide (no background needed)
@@ -283,6 +285,7 @@ docs/reference/             technical reference (expert audience)
 docs/learn/                 learning track (first principles)
 docs/author-notes/          how to transcribe and phrase results
 results/                    committed results after the T4 run
+CHANGELOG.md                release notes
 ```
 
 Data, checkpoints, ONNX files and engines are never committed. Details are in

@@ -42,12 +42,12 @@ its summary box and move on.
 | 5 | [CNNs and the U-Net](05-cnns-and-unet.md) | Learned filters, receptive fields, downsampling/upsampling, why U-Nets are the go-to for segmentation | 35 min |
 | 6 | [Attention and transformers](06-attention-and-transformers.md) | Tokens, queries/keys/values as a soft hash map, why divide by $\sqrt{d}$, multi-head attention, the quadratic cost | 45 min |
 | 7 | [Swin and SwinUNETR](07-swin-and-swinunetr.md) | Windowed and shifted attention, patch merging, the full network with every tensor shape | 45 min |
-| 8 | [Training this model](08-training-this-model.md) | Dice loss, AdamW, learning-rate schedules, floating-point formats and mixed precision, memory budgeting, what one epoch does | 50 min |
+| 8 | [Training this model](08-training-this-model.md) | Dice loss, AdamW, learning-rate schedules, floating-point formats and mixed precision, memory budgeting, what one epoch does, surviving interruptions with `--resume` | 60 min |
 | 9 | [Inference and evaluation](09-inference-and-evaluation.md) | Sliding windows, blending, Dice, why 8 validation scans is a small number, what "good" means clinically | 30 min |
 | 10 | [GPUs and deployment](10-gpus-and-deployment.md) | GPU architecture, Tensor Cores, the roofline model, async execution, ONNX as an IR, TensorRT as a compiler | 50 min |
 | 11 | [Is the fast model still the same model?](11-the-parity-gate.md) | The automated parity gate: why outputs can't match exactly, margins and confident flips, tolerance tiers, golden inputs vs whole scans, stale-engine protection, how to explain it in an interview | 35 min |
 | 12 | [Benchmarking honestly](12-benchmarking-honestly.md) | Measuring asynchronous hardware, warm-up, percentiles, Amdahl's law, how to read the results table | 25 min |
-| 13 | [Software engineering of this repo](13-software-engineering-of-this-repo.md) | Config layering, provenance, determinism, guarded imports, test strategy, CI, how to extend | 25 min |
+| 13 | [Software engineering of this repo](13-software-engineering-of-this-repo.md) | Config layering, provenance, determinism, guarded imports, designing for interruption, test strategy and fault injection, CI, how to extend | 25 min |
 | 14 | [Where to go next](14-where-to-go-next.md) | Books, courses, papers and exercises, in priority order | 10 min |
 | — | [Glossary](glossary.md) | Every term, one line each | reference |
 

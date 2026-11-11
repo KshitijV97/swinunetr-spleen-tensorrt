@@ -10,7 +10,7 @@ teach background concepts. For that, see the [learning track](../learn/README.md
 |---|---|
 | [data.md](data.md) | MSD Task09 cohort, split, preprocessing pipeline with parameters, patch sampling, caching, synthetic fixtures |
 | [architecture.md](architecture.md) | SwinUNETR as instantiated here: tensor shapes, window and shift sizes per stage, decoder wiring, parameter counts, export-relevant details |
-| [training.md](training.md) | Objective (DiceCE as MONAI computes it), optimiser, schedule, AMP, checkpoint selection, config system, hyperparameter table |
+| [training.md](training.md) | Objective (DiceCE as MONAI computes it), optimiser, schedule, AMP, checkpoint selection, config system, hyperparameter table, interruption and `--resume` |
 | [inference-and-evaluation.md](inference-and-evaluation.md) | Sliding-window inference and Gaussian blending, Dice definition and aggregation, evaluation protocol and its caveats |
 | [deployment.md](deployment.md) | ONNX export and verification, TensorRT FP16 engine build, runtime integration, CUDA guard |
 | [benchmarking.md](benchmarking.md) | Latency measurement protocol, what is included and excluded, statistics, how to read the table |

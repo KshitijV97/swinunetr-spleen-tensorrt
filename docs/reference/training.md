@@ -11,12 +11,13 @@ Code: [`src/train.py`](../../src/train.py). Config:
 python -m src.train                                  # full run (CUDA)
 python -m src.train --epochs 80 --feature-size 24    # CLI overrides
 python -m src.train --smoke-test [--synthetic]       # tiny CPU/MPS run
+python -m src.train --epochs 80 --resume             # continue an interrupted run (§10)
 ```
 
 | Output | Content |
 |---|---|
 | `checkpoints/best.pt` | `model_state`, merged `config`, `epoch`, `val_dice` at best validation |
-| `checkpoints/last.pt` | Final-epoch weights + config |
+| `checkpoints/last.pt` | Full training state after the most recent epoch, rewritten every epoch (§10). Also loadable by `load_checkpoint` |
 | `results/training_history.json` | Per-epoch loss, per-validation Dice, best Dice/epoch, wall time, parameter count, merged config, environment |
 
 ## 2. Configuration resolution
@@ -142,6 +143,55 @@ compare backends whose Dice differs by a similar amount (see
 | Host OOM at cache time | `cache_rate: 1.0` on Colab RAM | `cache_rate: 0.5` or `--max-volumes` |
 | Dice ≈ 0 after many epochs | Image/label misalignment, wrong window | `pytest`, `python -m src.data --summary`, inspect one case |
 | NaN loss under AMP | FP16 overflow | Confirm with `--no-amp`, then lower LR |
+| Run killed mid-training (Colab disconnect, laptop shut) | Session ended | Re-run the same command with `--resume` (§10) |
+| `--resume: the config differs ...` | Different flags from the interrupted run | Use the original flags; the message lists each differing key |
+| `--resume: ... holds weights only` | `last.pt` written by a `train.py` from before resume support | Start a fresh run; `best.pt` from the old run remains usable for export |
 
 Well-trained models commonly reach validation Dice in the mid-0.9s on this
 task. This is context, not a claim about this repository.
+
+## 10. Interruption and resume
+
+`last.pt` is written at the end of **every** epoch, after validation, so an
+interruption loses at most the epoch in progress. It holds:
+
+| Key | Why it is needed to continue exactly |
+|---|---|
+| `model_state` | Weights |
+| `optimizer_state` | AdamW first/second moments $m, v$ and step count $t$ (bias correction). Without them the first steps after resume behave like a cold start |
+| `scheduler_state` | Position $t$ on the cosine curve. Without it the LR would jump back to $\eta_0$ |
+| `scaler_state` | Current dynamic loss scale and growth tracker. Without it AMP re-calibrates from $2^{16}$ and skips steps |
+| `rng_state` | Python, NumPy, torch CPU and CUDA generators (DataLoader shuffle order, any torch-sampled randomness) |
+| `history`, `best_dice`, `best_epoch` | So `training_history.json` covers the whole run and `best.pt` is only replaced by a genuine improvement |
+| `elapsed_seconds`, `resumed_from` | Wall time accumulates across sessions; `training_history.json` records `resumed_from_epochs` for provenance |
+| `config`, `epoch` | Compatibility check and start epoch (`epoch + 1`) |
+
+The write is atomic (`torch.save` to `last.pt.tmp`, then `os.replace`), so a
+kill during the write leaves the previous `last.pt` intact.
+
+`--resume` (no argument) reads `<checkpoint_dir>/last.pt`; `--resume PATH`
+reads a specific file. The state is loaded and validated **before** the
+dataset is cached, so a wrong path or flag fails in seconds.
+
+**Compatibility rule.** The saved and current configs are compared over
+`seed`, `data`, `model` and `train`. Any difference stops the run with a list
+of `section.key: saved -> current`. The schedule ($T_\text{max}$ = epochs),
+the split (`seed`, `val_fraction`, `max_volumes`), the crop distribution and
+the architecture all depend on these keys, so silently mixing them would
+produce a run that corresponds to no single config. Exempt, because they do
+not change the computed values: `data.root_dir`, `data.num_workers`,
+`data.cache_rate`, `model.use_checkpoint`, `train.checkpoint_dir`. Extending
+a finished or interrupted run to more epochs is therefore **not** supported:
+it would change $T_\text{max}$ mid-schedule. Start a new run instead.
+
+**Equivalence, not bit-identity.** Epochs completed before the interruption
+are unaffected. After resume, MONAI's random transforms re-seed their own
+per-transform generators from the global seed at construction, so crop and
+augmentation draws differ from the uninterrupted run. The resumed run is a
+valid sample from the same training distribution; expect differences of the
+same order as GPU non-determinism (§8). Resuming an already completed run
+writes its history and exits without training.
+
+Tested in `tests/test_train_resume.py`: an interrupted-then-resumed run
+reproduces the pre-interruption losses, continues the schedule
+(`last_epoch == epochs`), and refuses a changed `train.epochs`.
