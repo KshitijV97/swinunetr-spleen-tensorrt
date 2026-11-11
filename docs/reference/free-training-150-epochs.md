@@ -29,7 +29,7 @@ benchmark afterwards.
 
 | Option | Runs in background? | Limits (verify before relying on them) | Verdict |
 |---|---|---|---|
-| **Kaggle Notebooks** (T4 x2 or P100) | **Yes.** *Save & Run All (Commit)* keeps running with the browser closed | About 30 GPU-hours/week, 12 h per session. Needs a phone-verified account for Internet access | **Recommended** |
+| **Kaggle Notebooks** (T4 x2) | **Yes.** *Save & Run All (Commit)* keeps running with the browser closed | About 30 GPU-hours/week, 12 h per session. Needs a phone-verified account for Internet access | **Recommended** |
 | Colab free (T4) | No. Needs an open tab, and idles out or disconnects | Roughly 12 h at best, often less; GPU availability varies | Fallback, with Drive + `--resume` |
 | GitHub Actions | Yes | Hosted runners have **no GPU** | Not usable for training |
 | Your Mac (MPS) | Yes | Very slow for a 62 M-parameter 3D transformer; also no TensorRT | Not realistic for 150 epochs |
@@ -46,7 +46,16 @@ retry.
    public for the unauthenticated clone to work.)
 2. On kaggle.com: create an account and verify your phone number (needed for
    Internet access in notebooks).
-3. **New Notebook → File → Import Notebook**, upload
+3. **Either push it from the command line** (recommended, starts the
+   background run directly):
+   `pip install kaggle`, create a token at kaggle.com → Settings → API →
+   *Create New Token*, save it as `~/.kaggle/kaggle.json` (`chmod 600`), then
+   run `scripts/kaggle_push.sh`. It uploads the notebook as a private kernel
+   with GPU T4 and Internet on and starts *Save & Run All*. Skip steps 4–5.
+   Track it with `kaggle kernels status <user>/swinunetr-spleen-150-epochs`
+   and download with `kaggle kernels output <user>/swinunetr-spleen-150-epochs -p out/`.
+
+   **Or in the browser:** **New Notebook → File → Import Notebook**, upload
    `notebooks/kaggle_train_150.ipynb`.
 4. In the session options set **Accelerator = GPU T4 x2** and **Internet = On**.
 5. Click **Save Version → Save & Run All (Commit)**. Close the tab. Check
@@ -80,8 +89,15 @@ and may take several sessions.
 - **Dataset in `/kaggle/temp`.** Keeps the 1.5 GB download out of the saved
   output.
 - **Benchmark numbers stay comparable.** Same T4 family and the same
-  protocol. A Kaggle P100 would change training time but not the benchmark,
-  because the benchmark is run separately on Colab's T4.
+  protocol. (Kaggle has retired the P100, and current PyTorch builds no
+  longer support its compute capability 6.0; the notebook stops early on it.)
+- **Minimal installs on Kaggle.** Only MONAI, nibabel and einops are
+  installed (same pins as `requirements-colab.txt`). The Colab file also pins
+  ONNX, ONNX Runtime, pytest and requests, which training does not need and
+  which would replace Kaggle's preinstalled copies.
+- **Failures still save output.** A failed training step is caught so the
+  summary and cleanup cells run, then the last cell re-raises, so the version
+  shows as failed but `last.pt` and the logs are kept.
 
 ## 5. After training: export and benchmark on Colab
 
