@@ -116,7 +116,7 @@ results will say so.
 | If you are... | Read |
 |---|---|
 | Curious, with no technical background | [**The project explained for everyone**](docs/overview-for-everyone.md): a longer, friendly walk-through with an FAQ |
-| An engineer new to medical imaging or AI | The [**learning track**](docs/learn/README.md): 13 chapters from first principles |
+| An engineer new to medical imaging or AI | The [**learning track**](docs/learn/README.md): 14 chapters from first principles |
 | Already an expert | The [**technical reference**](docs/reference/README.md), or keep reading below |
 | Wanting to run it | [Reproduce](#reproduce) below, or the Colab button at the top |
 

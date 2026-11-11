@@ -115,21 +115,66 @@ def _common_transforms(data_cfg: dict[str, Any]) -> list:
       4. clip CT intensities to a soft-tissue window and rescale to [0, 1]
       5. crop away the air around the patient to save memory and compute
     """
+    # The CT window in Hounsfield units (HU), [-57, 164] by default. HU is the
+    # CT scale where water = 0 and air = -1000; spleen is roughly 40-60 HU.
     a_min, a_max = data_cfg["hu_window"]
+
+    # Each transform receives a dict like {"image": path, "label": path} and
+    # returns the updated dict. The trailing "d" in each name (LoadImaged,
+    # Spacingd, ...) marks MONAI's dictionary version, which applies the
+    # transform to every key listed in `keys`. Every geometric step lists both
+    # "image" and "label", so the mask stays aligned voxel for voxel with the
+    # scan. Changing the geometry of only one would teach the model from a
+    # misplaced mask.
     return [
+        # 1a. Read the .nii.gz files into MetaTensors: voxel arrays that also
+        #     carry the "affine" matrix (how voxel indices map to millimetres
+        #     in the patient). Steps 2 and 3 rely on that affine.
         T.LoadImaged(keys=["image", "label"]),
+        # 1b. NIfTI loads as (X, Y, Z). PyTorch/MONAI expect a channel axis
+        #     first, so this makes it (1, X, Y, Z): one channel, because CT is
+        #     a single grey value per voxel, unlike RGB photos with 3.
         T.EnsureChannelFirstd(keys=["image", "label"]),
+        # 2. Reorder/flip the axes so that index order means the same body
+        #    direction in every scan: x increases to the patient's Right, y to
+        #    Anterior (front), z to Superior (head). Scanners store slices in
+        #    different orders; without this the model would see some patients
+        #    mirrored. `labels` pins the letter convention (first letter of a
+        #    pair = start of the axis, second = end), so MONAI uses it even if
+        #    a file's metadata says it is in LPS space, which would otherwise
+        #    flip what "R" and "A" mean.
         T.Orientationd(keys=["image", "label"], axcodes="RAS", labels=(("L", "R"), ("P", "A"), ("I", "S"))),
+        # 3. Resample to a fixed voxel size (default 1.5 x 1.5 x 2.0 mm). Raw
+        #    scans range from ~0.6 to 5 mm per voxel, so a 96-voxel crop would
+        #    cover a different physical size in each scan. After this step, a
+        #    spleen of a given size spans the same number of voxels everywhere.
+        #    It also shrinks the volumes, which saves memory.
         T.Spacingd(
             keys=["image", "label"],
             pixdim=data_cfg["pixdim"],
             # Images are interpolated smoothly; labels must stay integers, so
-            # they use nearest-neighbour interpolation.
+            # they use nearest-neighbour interpolation. ("bilinear" is MONAI's
+            # name for linear interpolation in any number of dimensions, so in
+            # 3D it is trilinear. Interpolating a label linearly would invent
+            # meaningless values such as 0.5 at the spleen's edge.)
             mode=("bilinear", "nearest"),
         ),
+        # 4. Map HU linearly so that a_min -> 0 and a_max -> 1, and clip
+        #    everything outside to 0 or 1. Bone (+1000 HU) and air (-1000 HU)
+        #    become flat 1s and 0s, and all of the 0-1 range goes to the soft
+        #    tissues that tell spleen from its neighbours. Image only: the
+        #    label holds class ids (0 = background, 1 = spleen), not
+        #    intensities.
         T.ScaleIntensityRanged(
             keys=["image"], a_min=a_min, a_max=a_max, b_min=0.0, b_max=1.0, clip=True
         ),
+        # 5. Find the smallest box containing every image voxel > 0 (MONAI's
+        #    default rule). After step 4 that means "brighter than a_min", so
+        #    the empty air around the body falls outside the box. Crop both
+        #    image and label to it. `source_key="image"` computes the box from
+        #    the scan, not the mask, so validation never peeks at the answer.
+        #    `allow_smaller=True` keeps the box where it is instead of padding
+        #    it past the image edges.
         T.CropForegroundd(keys=["image", "label"], source_key="image", allow_smaller=True),
     ]
 
@@ -298,9 +343,16 @@ def main() -> None:
         path = make_synthetic_dataset(cfg["data"]["root_dir"], n_volumes=args.synthetic)
         print(f"Wrote {args.synthetic} synthetic volumes to {path}")
         return
+    # Case 1: --download. Fetch and extract the dataset (network + disk), then
+    # report where it landed. This does not touch the train/val split.
     if args.download:
         path = download_spleen(cfg["data"]["root_dir"], cfg["data"]["task"])
         print(f"Dataset ready at {path}")
+    # Case 2: summary. Read-only inspection of data already on disk: build the
+    # train/val split and list the validation files. It runs when --summary is
+    # given, or by default when --download is not (so a bare invocation prints
+    # the summary). With --download alone it is skipped; pass both flags to
+    # download and then summarise.
     if args.summary or not args.download:
         train_files, val_files = get_splits(cfg)
         print(f"train: {len(train_files)} volumes, val: {len(val_files)} volumes")
