@@ -343,9 +343,16 @@ def main() -> None:
         path = make_synthetic_dataset(cfg["data"]["root_dir"], n_volumes=args.synthetic)
         print(f"Wrote {args.synthetic} synthetic volumes to {path}")
         return
+    # Case 1: --download. Fetch and extract the dataset (network + disk), then
+    # report where it landed. This does not touch the train/val split.
     if args.download:
         path = download_spleen(cfg["data"]["root_dir"], cfg["data"]["task"])
         print(f"Dataset ready at {path}")
+    # Case 2: summary. Read-only inspection of data already on disk: build the
+    # train/val split and list the validation files. It runs when --summary is
+    # given, or by default when --download is not (so a bare invocation prints
+    # the summary). With --download alone it is skipped; pass both flags to
+    # download and then summarise.
     if args.summary or not args.download:
         train_files, val_files = get_splits(cfg)
         print(f"train: {len(train_files)} volumes, val: {len(val_files)} volumes")
