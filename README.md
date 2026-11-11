@@ -279,7 +279,14 @@ benchmark code reproduced the same Dice on all three backends.
 3. **Keep checkpoints off the VM.** Set `--checkpoint-dir` to a mounted
    Google Drive folder so a disconnect doesn't lose `last.pt`, and use
    `--resume` (same flags) if the session drops.
-4. **Then rerun stage 8** and update the table above. Latency should barely
+4. **Free 150-epoch plan.** The step-by-step plan (background run on Kaggle's
+   free GPU, resume strategy, Colab fallback, and how to finish the benchmark
+   afterwards) is in
+   [docs/reference/free-training-150-epochs.md](docs/reference/free-training-150-epochs.md);
+   the notebook is
+   [notebooks/kaggle_train_150.ipynb](notebooks/kaggle_train_150.ipynb). It is
+   written but **has not been run yet**.
+5. **Then rerun stage 8** and update the table above. Latency should barely
    change; Dice should rise substantially. If it still stays far below 0.9
    after 150 epochs, check preprocessing and the train/validation split
    before changing the model.
