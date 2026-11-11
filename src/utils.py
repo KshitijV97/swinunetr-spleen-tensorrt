@@ -31,6 +31,26 @@ def deep_update(base: dict, overrides: dict) -> dict:
 
     Nested dictionaries are merged key by key instead of being replaced, so a
     smoke-test override of ``data.roi_size`` leaves ``data.pixdim`` untouched.
+
+    Args:
+        base: The original configuration. It is never modified.
+        overrides: Values to layer on top of ``base``. Keys missing from
+            ``base`` are added; keys present in both are overwritten, except
+            that when both values are dicts they are merged recursively.
+
+    Returns:
+        A new dictionary containing the merged result. Neither input is
+        mutated, and the result shares no nested objects with them.
+
+    Example:
+        >>> base = {"data": {"roi_size": [96, 96, 96], "pixdim": [1.5, 1.5, 2.0]},
+        ...         "epochs": 150}
+        >>> overrides = {"data": {"roi_size": [32, 32, 32]}, "epochs": 1}
+        >>> deep_update(base, overrides)
+        {'data': {'roi_size': [32, 32, 32], 'pixdim': [1.5, 1.5, 2.0]}, 'epochs': 1}
+
+        A plain ``{**base, **overrides}`` would instead replace the whole
+        ``data`` dict and drop ``pixdim``.
     """
     merged = copy.deepcopy(base)
     for key, value in overrides.items():
