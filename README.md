@@ -328,6 +328,46 @@ python -m src.parity --smoke-test --synthetic --volumes 1   # TensorRT recorded 
 python -m src.benchmark --smoke-test --synthetic  # AMP / TensorRT recorded as "skipped: needs CUDA"
 ```
 
+CI runs the same four commands with `--device cpu` added to `train` and
+`benchmark`. Locally the device is picked automatically (CUDA, then Apple
+MPS, then CPU), so on a Mac those steps use the Apple GPU unless you pass
+`--device cpu`.
+
+**Full run on Apple Silicon (MPS).** The same pipeline without
+`--smoke-test`, on real data. The device is picked automatically and AMP is
+switched off on MPS. Parity and the benchmark still run PyTorch (MPS) and ONNX
+Runtime (CPU); TensorRT and AMP are recorded as "skipped: needs CUDA", so this
+gives no TensorRT speed-up numbers.
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python -m src.data --download                 # ~1.5 GB, into data/
+python -m src.train                           # full config: F = 48, 150 epochs, 33 train volumes
+python -m src.export_onnx
+python -m src.parity --volumes 8
+python -m src.benchmark
+```
+
+> **Not timed or verified on a Mac.** The full config (~62M parameters, 96³
+> crops) is very slow on MPS, and a Kaggle or Colab GPU is the practical way to
+> run 150 epochs (see
+> [free-training-150-epochs.md](docs/reference/free-training-150-epochs.md)).
+> Things that help on a Mac:
+>
+> - **A smaller run:** `python -m src.train --feature-size 24 --epochs 50`.
+>   The later steps rebuild the model from the config stored in the
+>   checkpoint, so they need no extra flags.
+> - **Stopping and continuing:** `python -m src.train --resume` continues from
+>   `checkpoints/last.pt`. Keep the same `--epochs` and other flags.
+> - **Memory:** `--use-checkpoint` (gradient checkpointing) saves memory for
+>   about 30% more time. `data.cache_rate: 1.0` in
+>   [`configs/default.yaml`](configs/default.yaml) keeps every preprocessed
+>   volume in RAM; lower it on a 16 GB machine.
+> - **Unsupported ops:** if a step fails with an operator "not implemented for
+>   MPS", rerun it with `PYTORCH_ENABLE_MPS_FALLBACK=1`, which runs that op on
+>   the CPU.
+
 **Full run (Colab T4).** Open the notebook with the badge above, select
 *Runtime → Change runtime type → T4 GPU*, then *Run all*. It installs pinned
 dependencies and TensorRT, tests, downloads, trains, exports, benchmarks and
