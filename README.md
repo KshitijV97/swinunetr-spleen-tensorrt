@@ -4,7 +4,7 @@
 
 [![tests](https://github.com/kshitijv97/swinunetr-spleen-tensorrt/actions/workflows/tests.yml/badge.svg)](https://github.com/kshitijv97/swinunetr-spleen-tensorrt/actions/workflows/tests.yml)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/kshitijv97/swinunetr-spleen-tensorrt/blob/main/notebooks/colab_train_and_benchmark.ipynb)
-[![License: All rights reserved](https://img.shields.io/badge/License-All%20rights%20reserved-red.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 > **New here? Start with the plain-English section below.** It assumes no
 > background in medicine, engineering or AI. Technical readers can jump
@@ -422,7 +422,6 @@ TotalSegmentator).
 - Antonelli, M. et al. *The Medical Segmentation Decathlon.* Nat. Commun. 13, 4128 (2022). Data: <http://medicaldecathlon.com> (CC-BY-SA 4.0).
 - [MONAI](https://monai.io) (model, transforms, spleen tutorial defaults), [ONNX](https://onnx.ai), [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt).
 
-Copyright (c) 2026 Kshitij Vengurlekar. All rights reserved. This code is
-**not open source**: you may not use, copy, modify or distribute it without
-the author's prior written consent. See [LICENSE](LICENSE). The dataset is
-not included and keeps its own license.
+Copyright (c) 2026 Kshitij Vengurlekar. Released under the
+[Apache License 2.0](LICENSE). The dataset is not included and keeps its own
+license.
